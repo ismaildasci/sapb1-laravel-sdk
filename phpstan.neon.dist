@@ -11,3 +11,6 @@ parameters:
     ignoreErrors:
         -
             identifier: larastan.noEnvCallsOutsideOfConfig
+        -
+            identifier: trait.unused
+            path: src/Testing/*
