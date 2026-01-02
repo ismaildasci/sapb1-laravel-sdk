@@ -9,6 +9,8 @@ use Illuminate\Database\DatabaseManager;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Redis\RedisManager;
 use SapB1\Client\SapB1Client;
+use SapB1\Commands\SapB1SessionCommand;
+use SapB1\Commands\SapB1StatusCommand;
 use SapB1\Contracts\SessionStoreInterface;
 use SapB1\Session\Drivers\DatabaseSessionDriver;
 use SapB1\Session\Drivers\FileSessionDriver;
@@ -24,7 +26,11 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $package
             ->name('sap-b1')
             ->hasConfigFile()
-            ->hasMigration('create_sapb1_table');
+            ->hasMigration('create_sapb1_table')
+            ->hasCommands([
+                SapB1StatusCommand::class,
+                SapB1SessionCommand::class,
+            ]);
     }
 
     public function packageRegistered(): void
