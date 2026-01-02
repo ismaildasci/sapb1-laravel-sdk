@@ -6,15 +6,39 @@ namespace SapB1\Exceptions;
 
 class ServiceLayerException extends SapB1Exception
 {
+    protected int $statusCode = 0;
+
+    protected ?string $sapCode = null;
+
     /**
      * @param  array<string, mixed>  $context
      */
     public function __construct(
         string $message = 'SAP B1 Service Layer returned an error',
-        ?int $errorCode = null,
+        int $statusCode = 0,
+        ?string $sapCode = null,
         array $context = []
     ) {
-        parent::__construct($message, $errorCode, $context);
+        $this->statusCode = $statusCode;
+        $this->sapCode = $sapCode;
+
+        parent::__construct($message, $statusCode, $context);
+    }
+
+    /**
+     * Get the HTTP status code.
+     */
+    public function getStatusCode(): int
+    {
+        return $this->statusCode;
+    }
+
+    /**
+     * Get the SAP error code.
+     */
+    public function getSapCode(): ?string
+    {
+        return $this->sapCode;
     }
 
     /**
@@ -22,7 +46,7 @@ class ServiceLayerException extends SapB1Exception
      *
      * @param  array<string, mixed>  $response
      */
-    public static function fromResponse(array $response): self
+    public static function fromResponse(array $response, int $statusCode = 0): self
     {
         $error = $response['error'] ?? [];
 
@@ -31,11 +55,13 @@ class ServiceLayerException extends SapB1Exception
             ?? $error['message']
             ?? 'Unknown Service Layer error';
 
+        /** @var string|null $code */
         $code = $error['code'] ?? null;
 
         return new self(
-            message: $message,
-            errorCode: is_numeric($code) ? (int) $code : null,
+            message: is_string($message) ? $message : 'Unknown Service Layer error',
+            statusCode: $statusCode,
+            sapCode: $code,
             context: [
                 'error' => $error,
                 'response' => $response,
