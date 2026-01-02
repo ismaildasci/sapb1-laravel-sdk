@@ -48,6 +48,12 @@ return [
         // Session storage driver: redis, file, database
         'driver' => env('SAP_B1_SESSION_DRIVER', 'file'),
 
+        // Redis connection name (when using redis driver)
+        'redis_connection' => env('SAP_B1_REDIS_CONNECTION', 'default'),
+
+        // Database connection name (when using database driver)
+        'database_connection' => env('SAP_B1_DATABASE_CONNECTION'),
+
         // Key prefix for session storage
         'prefix' => 'sap_b1_session:',
 
