@@ -26,7 +26,10 @@ class SapB1SessionCommand extends Command
 
     public function handle(SessionManager $sessionManager): int
     {
+        /** @var string $action */
         $action = $this->argument('action');
+
+        /** @var string $connection */
         $connection = $this->option('connection') ?? config('sap-b1.default', 'default');
 
         return match ($action) {

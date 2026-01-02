@@ -158,7 +158,9 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
      */
     public function count(): ?int
     {
-        $count = $this->json('odata.count') ?? $this->json('@odata.count');
+        $count = $this->decoded['odata.count']
+            ?? $this->decoded['@odata.count']
+            ?? null;
 
         return $count !== null ? (int) $count : null;
     }
@@ -169,7 +171,9 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
     public function nextLink(): ?string
     {
         /** @var string|null $nextLink */
-        $nextLink = $this->json('odata.nextLink') ?? $this->json('@odata.nextLink');
+        $nextLink = $this->decoded['odata.nextLink']
+            ?? $this->decoded['@odata.nextLink']
+            ?? null;
 
         return $nextLink;
     }
@@ -213,7 +217,9 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
     public function context(): ?string
     {
         /** @var string|null $context */
-        $context = $this->json('odata.context') ?? $this->json('@odata.context');
+        $context = $this->decoded['odata.context']
+            ?? $this->decoded['@odata.context']
+            ?? null;
 
         return $context;
     }
