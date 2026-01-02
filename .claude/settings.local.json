@@ -4,7 +4,8 @@
       "Bash(composer dump-autoload:*)",
       "Bash(vendor/bin/pint:*)",
       "Bash(vendor/bin/pest:*)",
-      "Bash(vendor/bin/phpstan analyse:*)"
+      "Bash(vendor/bin/phpstan analyse:*)",
+      "Bash(cat:*)"
     ]
   }
 }
