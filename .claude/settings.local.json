@@ -5,7 +5,8 @@
       "Bash(vendor/bin/pint:*)",
       "Bash(vendor/bin/pest:*)",
       "Bash(vendor/bin/phpstan analyse:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls:*)"
     ]
   }
 }
