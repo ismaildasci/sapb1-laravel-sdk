@@ -9,9 +9,11 @@ use Illuminate\Database\DatabaseManager;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Redis\RedisManager;
 use SapB1\Client\SapB1Client;
+use SapB1\Commands\SapB1HealthCommand;
 use SapB1\Commands\SapB1SessionCommand;
 use SapB1\Commands\SapB1StatusCommand;
 use SapB1\Contracts\SessionStoreInterface;
+use SapB1\Health\SapB1HealthCheck;
 use SapB1\Session\Drivers\DatabaseSessionDriver;
 use SapB1\Session\Drivers\FileSessionDriver;
 use SapB1\Session\Drivers\RedisSessionDriver;
@@ -30,6 +32,7 @@ class SapB1ServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 SapB1StatusCommand::class,
                 SapB1SessionCommand::class,
+                SapB1HealthCommand::class,
             ]);
     }
 
@@ -38,6 +41,7 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $this->registerSessionStore();
         $this->registerSessionManager();
         $this->registerClient();
+        $this->registerHealthCheck();
     }
 
     public function packageBooted(): void
@@ -95,6 +99,19 @@ class SapB1ServiceProvider extends PackageServiceProvider
 
         // Alias for convenience
         $this->app->alias(SapB1Client::class, 'sap-b1');
+    }
+
+    /**
+     * Register the health check.
+     */
+    protected function registerHealthCheck(): void
+    {
+        $this->app->singleton(SapB1HealthCheck::class, function (Application $app): SapB1HealthCheck {
+            return new SapB1HealthCheck(
+                $app->make(SessionManager::class),
+                $app->make(SapB1Client::class)
+            );
+        });
     }
 
     /**
