@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use SapB1\Events\RequestFailed;
 use SapB1\Events\RequestSending;
 use SapB1\Events\RequestSent;
+use SapB1\Exceptions\CircuitBreakerOpenException;
 use SapB1\Exceptions\ConnectionException;
 use SapB1\Exceptions\ServiceLayerException;
 
@@ -101,6 +102,16 @@ class PendingRequest
      * Auto-generate request ID for all requests.
      */
     protected bool $autoRequestId = false;
+
+    /**
+     * Circuit breaker enabled.
+     */
+    protected bool $circuitBreakerEnabled = false;
+
+    /**
+     * Circuit breaker instance.
+     */
+    protected ?CircuitBreaker $circuitBreaker = null;
 
     /**
      * Create a new PendingRequest instance.
@@ -370,6 +381,40 @@ class PendingRequest
     }
 
     /**
+     * Enable circuit breaker for this request.
+     */
+    public function withCircuitBreaker(?CircuitBreaker $circuitBreaker = null): self
+    {
+        $this->circuitBreakerEnabled = true;
+        $this->circuitBreaker = $circuitBreaker;
+
+        return $this;
+    }
+
+    /**
+     * Disable circuit breaker for this request.
+     */
+    public function withoutCircuitBreaker(): self
+    {
+        $this->circuitBreakerEnabled = false;
+        $this->circuitBreaker = null;
+
+        return $this;
+    }
+
+    /**
+     * Get the circuit breaker instance.
+     */
+    protected function getCircuitBreaker(): CircuitBreaker
+    {
+        if ($this->circuitBreaker === null) {
+            $this->circuitBreaker = app(CircuitBreaker::class);
+        }
+
+        return $this->circuitBreaker;
+    }
+
+    /**
      * Send a GET request.
      */
     public function get(string $endpoint): Response
@@ -432,6 +477,17 @@ class PendingRequest
      */
     protected function send(string $method, string $endpoint): Response
     {
+        // Check circuit breaker before making request
+        if ($this->circuitBreakerEnabled) {
+            $cb = $this->getCircuitBreaker();
+            if (! $cb->isAvailable($endpoint)) {
+                throw new CircuitBreakerOpenException(
+                    endpoint: $endpoint,
+                    retryAfter: (int) config('sap-b1.http.circuit_breaker.open_duration', 30)
+                );
+            }
+        }
+
         $url = $this->buildUrl($endpoint);
         $options = $this->buildOptions();
 
@@ -465,8 +521,18 @@ class PendingRequest
 
                 $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration);
 
+                // Record success in circuit breaker (even if slow, success is success)
+                if ($this->circuitBreakerEnabled) {
+                    $this->getCircuitBreaker()->recordSuccess($endpoint);
+                }
+
                 return new Response($response);
             } catch (ConnectException $e) {
+                // Record failure in circuit breaker (connection timeout is a real failure)
+                if ($this->circuitBreakerEnabled) {
+                    $this->getCircuitBreaker()->recordFailure($endpoint);
+                }
+
                 if ($attempt >= max(1, $this->retryTimes)) {
                     $this->logError($method, $endpoint, $e);
 
@@ -486,8 +552,15 @@ class PendingRequest
                 $this->logRetry($method, $endpoint, $attempt, 'ConnectException');
                 $this->sleep($attempt);
             } catch (RequestException $e) {
+                $statusCode = $e->getResponse()?->getStatusCode();
+
+                // Record failure only for 5xx errors (server errors, not client errors)
+                if ($this->circuitBreakerEnabled && $statusCode !== null && $statusCode >= 500) {
+                    $this->getCircuitBreaker()->recordFailure($endpoint);
+                }
+
                 if ($this->shouldRetry($e->getResponse(), $attempt)) {
-                    $this->logRetry($method, $endpoint, $attempt, 'RequestException: '.$e->getResponse()?->getStatusCode());
+                    $this->logRetry($method, $endpoint, $attempt, 'RequestException: '.$statusCode);
                     $this->sleepWithResponse($attempt, $e->getResponse());
 
                     continue;
@@ -504,6 +577,11 @@ class PendingRequest
 
                 throw $this->createException($e, $endpoint);
             } catch (GuzzleException $e) {
+                // Record failure in circuit breaker (general Guzzle error)
+                if ($this->circuitBreakerEnabled) {
+                    $this->getCircuitBreaker()->recordFailure($endpoint);
+                }
+
                 $this->logError($method, $endpoint, $e);
 
                 RequestFailed::dispatch(

@@ -168,6 +168,25 @@ return [
             // 'Reports/*' => 120,
             // 'ProductionOrders' => 60,
         ],
+
+        // Circuit Breaker configuration
+        // Prevents cascading failures by blocking requests when too many errors occur
+        'circuit_breaker' => [
+            // Enable circuit breaker (disabled by default)
+            'enabled' => env('SAP_B1_CIRCUIT_BREAKER', false),
+
+            // Number of consecutive failures before opening the circuit
+            'failure_threshold' => 5,
+
+            // Seconds to wait before trying half-open state
+            'open_duration' => 30,
+
+            // Number of successful requests in half-open state to close the circuit
+            'half_open_max_attempts' => 3,
+
+            // Tracking scope: 'global' (single circuit) or 'endpoint' (per-endpoint)
+            'scope' => 'global',
+        ],
     ],
 
     /*

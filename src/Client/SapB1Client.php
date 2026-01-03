@@ -500,7 +500,33 @@ class SapB1Client
                 $this->getRetryWhen()
             );
 
+        // Apply auto request ID if enabled
+        if ($this->isAutoRequestIdEnabled()) {
+            $request->withRequestId();
+        }
+
+        // Apply circuit breaker if enabled
+        if ($this->isCircuitBreakerEnabled()) {
+            $request->withCircuitBreaker();
+        }
+
         return $request;
+    }
+
+    /**
+     * Check if auto request ID is enabled.
+     */
+    protected function isAutoRequestIdEnabled(): bool
+    {
+        return (bool) config('sap-b1.http.request_id.auto', false);
+    }
+
+    /**
+     * Check if circuit breaker is enabled.
+     */
+    protected function isCircuitBreakerEnabled(): bool
+    {
+        return (bool) config('sap-b1.http.circuit_breaker.enabled', false);
     }
 
     /**

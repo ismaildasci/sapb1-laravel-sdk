@@ -2,6 +2,39 @@
 
 All notable changes to `laravel-sapb1` will be documented in this file.
 
+## 1.6.0 - 2026-01-03
+
+### Added
+
+#### Circuit Breaker Pattern
+- **Circuit Breaker**: Prevent cascading failures with automatic circuit breaking
+  - `CircuitBreaker` class with CLOSED, OPEN, HALF_OPEN states
+  - `CircuitBreakerInterface` contract for custom implementations
+  - `CircuitBreakerOpenException` for circuit open scenarios
+  - `CircuitBreakerStateChanged` event for monitoring state transitions
+  - Configurable: `failure_threshold`, `open_duration`, `half_open_max_attempts`
+  - Per-endpoint or global tracking via `scope` config
+  - `withCircuitBreaker()` / `withoutCircuitBreaker()` methods on PendingRequest
+  - Laravel Cache-based state storage
+  - **Only real errors count as failures**: Connection timeouts and 5xx status codes
+  - **Slow but successful responses are SUCCESS**, not failures
+
+#### Request ID Enhancement
+- **Auto Request ID in createRequest()**: Request IDs now properly applied
+  - `withRequestId()` chained in `SapB1Client::createRequest()` when auto is enabled
+  - Ensures request ID propagates through all request methods
+
+### Fixed
+
+- Fixed auto request ID not being applied via `SapB1Client.createRequest()`
+
+### Tests
+
+- Added comprehensive unit tests for CircuitBreaker (14 tests)
+- Added CircuitBreakerOpenException tests
+
+---
+
 ## 1.5.0 - 2026-01-03
 
 ### Added

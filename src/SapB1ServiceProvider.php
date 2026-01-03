@@ -10,10 +10,12 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Redis\RedisManager;
 use SapB1\Cache\CacheInvalidator;
 use SapB1\Cache\QueryCache;
+use SapB1\Client\CircuitBreaker;
 use SapB1\Client\SapB1Client;
 use SapB1\Commands\SapB1HealthCommand;
 use SapB1\Commands\SapB1SessionCommand;
 use SapB1\Commands\SapB1StatusCommand;
+use SapB1\Contracts\CircuitBreakerInterface;
 use SapB1\Contracts\SessionStoreInterface;
 use SapB1\Health\SapB1HealthCheck;
 use SapB1\Profiling\QueryProfiler;
@@ -47,6 +49,7 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $this->registerHealthCheck();
         $this->registerCache();
         $this->registerProfiler();
+        $this->registerCircuitBreaker();
     }
 
     public function packageBooted(): void
@@ -152,13 +155,29 @@ class SapB1ServiceProvider extends PackageServiceProvider
     }
 
     /**
+     * Register the circuit breaker.
+     */
+    protected function registerCircuitBreaker(): void
+    {
+        $this->app->singleton(CircuitBreakerInterface::class, function (): CircuitBreakerInterface {
+            return new CircuitBreaker;
+        });
+
+        $this->app->singleton(CircuitBreaker::class, function (): CircuitBreaker {
+            return new CircuitBreaker;
+        });
+
+        $this->app->alias(CircuitBreaker::class, 'sap-b1.circuit-breaker');
+    }
+
+    /**
      * Boot the about command integration.
      */
     protected function bootAboutCommand(): void
     {
         if (class_exists(\Illuminate\Foundation\Console\AboutCommand::class)) {
             \Illuminate\Foundation\Console\AboutCommand::add('SAP B1 SDK', fn (): array => [
-                'Version' => '1.3.0',
+                'Version' => '1.6.0',
                 'Session Driver' => (string) config('sap-b1.session.driver', 'file'),
                 'Default Connection' => (string) config('sap-b1.default', 'default'),
                 'Cache Enabled' => config('sap-b1.cache.enabled', false) ? 'Yes' : 'No',
