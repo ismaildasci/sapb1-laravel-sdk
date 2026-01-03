@@ -13,15 +13,21 @@ use SapB1\Cache\QueryCache;
 use SapB1\Client\CircuitBreaker;
 use SapB1\Client\SapB1Client;
 use SapB1\Commands\SapB1HealthCommand;
+use SapB1\Commands\SapB1PoolCommand;
 use SapB1\Commands\SapB1SessionCommand;
 use SapB1\Commands\SapB1StatusCommand;
 use SapB1\Contracts\CircuitBreakerInterface;
+use SapB1\Contracts\SessionPoolInterface;
+use SapB1\Contracts\SessionPoolStoreInterface;
 use SapB1\Contracts\SessionStoreInterface;
 use SapB1\Health\SapB1HealthCheck;
 use SapB1\Profiling\QueryProfiler;
 use SapB1\Session\Drivers\DatabaseSessionDriver;
 use SapB1\Session\Drivers\FileSessionDriver;
 use SapB1\Session\Drivers\RedisSessionDriver;
+use SapB1\Session\Pool\SessionPool;
+use SapB1\Session\Pool\Stores\DatabasePoolStore;
+use SapB1\Session\Pool\Stores\RedisPoolStore;
 use SapB1\Session\SessionManager;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -33,11 +39,15 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $package
             ->name('sap-b1')
             ->hasConfigFile()
-            ->hasMigration('create_sapb1_table')
+            ->hasMigrations([
+                'create_sapb1_table',
+                'create_sapb1_session_pool_table',
+            ])
             ->hasCommands([
                 SapB1StatusCommand::class,
                 SapB1SessionCommand::class,
                 SapB1HealthCommand::class,
+                SapB1PoolCommand::class,
             ]);
     }
 
@@ -45,6 +55,7 @@ class SapB1ServiceProvider extends PackageServiceProvider
     {
         $this->registerSessionStore();
         $this->registerSessionManager();
+        $this->registerSessionPool();
         $this->registerClient();
         $this->registerHealthCheck();
         $this->registerCache();
@@ -55,6 +66,34 @@ class SapB1ServiceProvider extends PackageServiceProvider
     public function packageBooted(): void
     {
         $this->bootAboutCommand();
+        $this->bootSessionPoolWarmup();
+    }
+
+    /**
+     * Boot session pool warmup if enabled.
+     */
+    protected function bootSessionPoolWarmup(): void
+    {
+        if (! config('sap-b1.pool.enabled', false)) {
+            return;
+        }
+
+        if (! config('sap-b1.pool.warmup_on_boot', true)) {
+            return;
+        }
+
+        // Defer warmup until app is fully booted
+        $this->app->booted(function (Application $app): void {
+            if ($app->bound(SessionPoolInterface::class)) {
+                try {
+                    /** @var SessionPoolInterface $pool */
+                    $pool = $app->make(SessionPoolInterface::class);
+                    $pool->warmUp('default');
+                } catch (\Throwable) {
+                    // Silently fail warmup - sessions will be created on demand
+                }
+            }
+        });
     }
 
     /**
@@ -95,13 +134,60 @@ class SapB1ServiceProvider extends PackageServiceProvider
     }
 
     /**
+     * Register the session pool for high-concurrency scenarios.
+     */
+    protected function registerSessionPool(): void
+    {
+        // Only register pool components if pool is enabled
+        if (! config('sap-b1.pool.enabled', false)) {
+            return;
+        }
+
+        // Register pool store based on session driver
+        $this->app->singleton(SessionPoolStoreInterface::class, function (Application $app): SessionPoolStoreInterface {
+            /** @var string $driver */
+            $driver = config('sap-b1.session.driver', 'database');
+
+            return match ($driver) {
+                'redis' => new RedisPoolStore(
+                    $app->make(RedisManager::class),
+                    (string) config('sap-b1.session.redis_connection', 'default')
+                ),
+                default => new DatabasePoolStore(
+                    $app->make(DatabaseManager::class),
+                    config('sap-b1.session.database_connection')
+                ),
+            };
+        });
+
+        // Register session pool
+        $this->app->singleton(SessionPoolInterface::class, function (Application $app): SessionPoolInterface {
+            return new SessionPool(
+                $app->make(SessionPoolStoreInterface::class),
+                $app->make(SessionManager::class)
+            );
+        });
+
+        // Alias for convenience
+        $this->app->alias(SessionPoolInterface::class, 'sap-b1.pool');
+    }
+
+    /**
      * Register the SAP B1 client.
      */
     protected function registerClient(): void
     {
         $this->app->singleton(SapB1Client::class, function (Application $app): SapB1Client {
+            $pool = null;
+
+            // Inject pool if enabled
+            if (config('sap-b1.pool.enabled', false) && $app->bound(SessionPoolInterface::class)) {
+                $pool = $app->make(SessionPoolInterface::class);
+            }
+
             return new SapB1Client(
-                $app->make(SessionManager::class)
+                $app->make(SessionManager::class),
+                $pool
             );
         });
 
@@ -177,9 +263,10 @@ class SapB1ServiceProvider extends PackageServiceProvider
     {
         if (class_exists(\Illuminate\Foundation\Console\AboutCommand::class)) {
             \Illuminate\Foundation\Console\AboutCommand::add('SAP B1 SDK', fn (): array => [
-                'Version' => '1.6.0',
+                'Version' => '1.7.0',
                 'Session Driver' => (string) config('sap-b1.session.driver', 'file'),
                 'Default Connection' => (string) config('sap-b1.default', 'default'),
+                'Session Pool' => config('sap-b1.pool.enabled', false) ? 'Enabled' : 'Disabled',
                 'Cache Enabled' => config('sap-b1.cache.enabled', false) ? 'Yes' : 'No',
                 'Profiling Enabled' => config('sap-b1.profiling.enabled', false) ? 'Yes' : 'No',
             ]);

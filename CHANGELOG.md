@@ -2,6 +2,68 @@
 
 All notable changes to `laravel-sapb1` will be documented in this file.
 
+## 1.7.0 - 2026-01-03
+
+### Added
+
+#### Session Pool
+- **Session Pool**: High-concurrency session management for heavy load scenarios
+  - `SessionPool` class implementing `SessionPoolInterface`
+  - Acquire/release pattern for session usage
+  - `PooledSession` value object wrapping SessionData with pool metadata
+  - `PoolConfiguration` value object with validation
+
+- **Pool Storage Drivers**:
+  - `DatabasePoolStore`: Database-based pool storage with atomic operations
+  - `RedisPoolStore`: Redis-based pool storage using Hash and Sets
+  - Migration: `create_sapb1_session_pool_table` for database driver
+
+- **Distribution Algorithms**:
+  - `round_robin`: Evenly distributes across sessions (oldest released first)
+  - `least_connections`: Selects least used session
+  - `lifo`: Last-In-First-Out for cache locality
+
+- **Pool Configuration**:
+  - `min_size` / `max_size`: Pool size boundaries
+  - `idle_timeout` / `wait_timeout`: Timeout settings
+  - `warmup_on_boot`: Auto pre-create sessions on app boot
+  - `validation_on_acquire`: Validate session before returning
+
+- **New Events**:
+  - `SessionAcquired`: Fired when session acquired from pool
+  - `SessionReleased`: Fired when session released to pool
+  - `PoolWarmedUp`: Fired when pool warmup completes
+  - `PoolSessionExpired`: Fired when pooled session expires
+
+- **New Exceptions**:
+  - `PoolExhaustedException`: No session available within timeout
+  - `PoolConfigurationException`: Invalid pool configuration
+
+- **New Artisan Command**: `sap-b1:pool`
+  - `status`: Show pool statistics and health
+  - `warmup`: Pre-create sessions (`--count=N` to specify)
+  - `drain`: Close and remove all sessions
+  - `cleanup`: Remove expired sessions
+  - `sessions`: List session summary by status
+
+- **SapB1Client Pool Integration**:
+  - `releaseSession()`: Release acquired session back to pool
+  - `isUsingPool()`: Check if pool is active
+  - `getPoolStats()`: Get pool statistics
+
+### Changed
+
+- `SapB1Client` now accepts optional `SessionPoolInterface` for pool usage
+- `SessionManager` exposes `createNewSession()` for pool session creation
+- ServiceProvider version updated to 1.7.0
+
+### Tests
+
+- Added 43 new unit tests for pool components
+- Total tests: 164 (297 assertions)
+
+---
+
 ## 1.6.0 - 2026-01-03
 
 ### Added

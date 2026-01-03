@@ -96,7 +96,8 @@ class ServiceEndpoint
     {
         $response = $this->client->update($this->endpoint, $key, $data);
 
-        return $response->json();
+        // SAP B1 PATCH returns 204 No Content on success
+        return $response->json() ?? [];
     }
 
     /**
@@ -119,7 +120,8 @@ class ServiceEndpoint
     {
         $response = $this->client->action($this->endpoint, $key, $action, $params);
 
-        return $response->json();
+        // SAP B1 actions (Cancel, Close, etc.) return 204 No Content on success
+        return $response->json() ?? [];
     }
 
     /**

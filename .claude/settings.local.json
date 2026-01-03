@@ -12,7 +12,9 @@
       "Bash(./vendor/bin/pint:*)",
       "WebSearch",
       "Bash(gh pr list:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(php -r:*)",
+      "Bash(find:*)"
     ]
   }
 }

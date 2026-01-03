@@ -32,3 +32,5 @@ testbench.yaml
 
 # Internal planning docs
 /plan-docs/
+
+/.env.*

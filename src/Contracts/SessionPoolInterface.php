@@ -66,9 +66,11 @@ interface SessionPoolInterface
      *     total: int,
      *     active: int,
      *     idle: int,
+     *     expired: int,
      *     waiting: int,
      *     min_size: int,
-     *     max_size: int
+     *     max_size: int,
+     *     algorithm: string
      * }
      */
     public function stats(string $connection): array;

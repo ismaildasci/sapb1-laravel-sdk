@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('sap_b1_session_pool', function (Blueprint $table) {
+            $table->id();
+            $table->string('connection');
+            $table->string('session_id')->unique();
+            $table->text('payload');
+            $table->enum('status', ['idle', 'active', 'expired'])->default('idle');
+            $table->timestamp('acquired_at')->nullable();
+            $table->timestamp('released_at')->nullable();
+            $table->timestamp('expires_at');
+            $table->unsignedInteger('use_count')->default(0);
+            $table->timestamps();
+
+            $table->index(['connection', 'status'], 'sap_pool_connection_status_index');
+            $table->index('expires_at', 'sap_pool_expires_at_index');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('sap_b1_session_pool');
+    }
+};

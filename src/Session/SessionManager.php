@@ -164,6 +164,40 @@ class SessionManager
     }
 
     /**
+     * Create a new session without storing it.
+     *
+     * Used by session pool to create sessions for the pool.
+     */
+    public function createNewSession(string $connection = 'default'): SessionData
+    {
+        $config = $this->getConnectionConfig($connection);
+        $client = $this->getHttpClient($config);
+
+        try {
+            $response = $client->post('Login', [
+                'json' => [
+                    'CompanyDB' => $config['company_db'],
+                    'UserName' => $config['username'],
+                    'Password' => $config['password'],
+                    'Language' => $config['language'] ?? 23,
+                ],
+            ]);
+
+            /** @var array<string, mixed> $data */
+            $data = json_decode((string) $response->getBody(), true);
+
+            $ttl = (int) config('sap-b1.session.ttl', 1680);
+
+            return SessionData::fromLoginResponse($data, $config['company_db'], $ttl);
+        } catch (GuzzleException $e) {
+            throw new AuthenticationException(
+                message: 'Failed to login to SAP B1: '.$e->getMessage(),
+                context: ['connection' => $connection]
+            );
+        }
+    }
+
+    /**
      * Refresh session with lock to prevent concurrent refresh.
      */
     protected function refreshWithLock(string $connection): SessionData

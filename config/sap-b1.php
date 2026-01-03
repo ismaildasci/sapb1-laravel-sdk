@@ -93,6 +93,12 @@ return [
     'pool' => [
         'enabled' => env('SAP_B1_POOL_ENABLED', false),
 
+        // Pre-create minimum sessions when application boots
+        'warmup_on_boot' => env('SAP_B1_POOL_WARMUP', true),
+
+        // Validate session before returning from acquire
+        'validation_on_acquire' => true,
+
         // Per-connection pool settings
         'connections' => [
             'default' => [

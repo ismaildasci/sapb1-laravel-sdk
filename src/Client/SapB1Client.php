@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace SapB1\Client;
 
+use SapB1\Contracts\SessionPoolInterface;
 use SapB1\Exceptions\AuthenticationException;
+use SapB1\Exceptions\PoolExhaustedException;
 use SapB1\Exceptions\ServiceLayerException;
 use SapB1\Exceptions\SessionExpiredException;
+use SapB1\Session\SessionData;
 use SapB1\Session\SessionManager;
 
 class SapB1Client
@@ -46,10 +49,16 @@ class SapB1Client
     protected array $config;
 
     /**
+     * Currently acquired session from pool (for release).
+     */
+    protected ?SessionData $acquiredSession = null;
+
+    /**
      * Create a new SapB1Client instance.
      */
     public function __construct(
-        protected SessionManager $sessionManager
+        protected SessionManager $sessionManager,
+        protected ?SessionPoolInterface $pool = null
     ) {
         $this->loadConfig();
     }
@@ -61,6 +70,7 @@ class SapB1Client
     {
         $clone = clone $this;
         $clone->connection = $connection;
+        $clone->acquiredSession = null;
         $clone->loadConfig();
 
         return $clone;
@@ -531,10 +541,31 @@ class SapB1Client
 
     /**
      * Get the session, handling expiration.
+     * Uses pool if available and enabled, otherwise falls back to session manager.
      */
-    protected function getSession(): \SapB1\Session\SessionData
+    protected function getSession(): SessionData
     {
         try {
+            // Use pool if available
+            if ($this->pool !== null && config('sap-b1.pool.enabled', false)) {
+                $session = $this->pool->acquire(
+                    $this->connection,
+                    (int) config('sap-b1.pool.connections.'.$this->connection.'.wait_timeout', 30)
+                );
+
+                if ($session === null) {
+                    throw PoolExhaustedException::forConnection(
+                        $this->connection,
+                        (int) config('sap-b1.pool.connections.'.$this->connection.'.wait_timeout', 30)
+                    );
+                }
+
+                $this->acquiredSession = $session;
+
+                return $session;
+            }
+
+            // Default: use session manager (1-to-1 session)
             return $this->sessionManager->getSession($this->connection);
         } catch (AuthenticationException $e) {
             throw new SessionExpiredException(
@@ -542,6 +573,40 @@ class SapB1Client
                 context: ['connection' => $this->connection]
             );
         }
+    }
+
+    /**
+     * Release the acquired session back to the pool.
+     * Only applicable when using session pool.
+     */
+    public function releaseSession(bool $invalidate = false): void
+    {
+        if ($this->pool !== null && $this->acquiredSession !== null) {
+            $this->pool->release($this->connection, $this->acquiredSession, $invalidate);
+            $this->acquiredSession = null;
+        }
+    }
+
+    /**
+     * Check if currently using session pool.
+     */
+    public function isUsingPool(): bool
+    {
+        return $this->pool !== null && config('sap-b1.pool.enabled', false);
+    }
+
+    /**
+     * Get pool statistics for the current connection.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getPoolStats(): ?array
+    {
+        if ($this->pool === null) {
+            return null;
+        }
+
+        return $this->pool->stats($this->connection);
     }
 
     /**
