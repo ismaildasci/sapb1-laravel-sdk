@@ -7,6 +7,7 @@ namespace SapB1\Session;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Support\Arrayable;
 use JsonSerializable;
+use SapB1\Exceptions\JsonDecodeException;
 
 /**
  * @implements Arrayable<string, mixed>
@@ -55,11 +56,21 @@ readonly class SessionData implements Arrayable, JsonSerializable
 
     /**
      * Create SessionData from JSON string.
+     *
+     * @throws JsonDecodeException
      */
     public static function fromJson(string $json): self
     {
-        /** @var array<string, mixed> $data */
+        /** @var array<string, mixed>|null $data */
         $data = json_decode($json, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw JsonDecodeException::fromLastError($json);
+        }
+
+        if ($data === null) {
+            throw new JsonDecodeException('Session data is null');
+        }
 
         return self::fromArray($data);
     }

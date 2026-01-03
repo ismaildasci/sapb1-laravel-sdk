@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use JsonSerializable;
 use Psr\Http\Message\ResponseInterface;
+use SapB1\Exceptions\JsonDecodeException;
 
 /**
  * @implements Arrayable<string, mixed>
@@ -298,6 +299,8 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
      * Decode the response body as JSON.
      *
      * @return array<string, mixed>|null
+     *
+     * @throws JsonDecodeException
      */
     protected function decodeBody(): ?array
     {
@@ -309,6 +312,10 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
 
         /** @var array<string, mixed>|null $decoded */
         $decoded = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw JsonDecodeException::fromLastError($body);
+        }
 
         return $decoded;
     }

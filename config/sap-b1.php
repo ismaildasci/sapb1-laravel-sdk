@@ -68,6 +68,49 @@ return [
             'enabled' => true,
             'timeout' => 10,
         ],
+
+        // Auto-refresh on 401 errors
+        'auto_refresh' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Pool Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure session pooling for high-concurrency scenarios.
+    | When enabled, multiple sessions are maintained and distributed
+    | across concurrent requests to prevent bottlenecks.
+    |
+    | Note: Session pooling is an advanced feature for high-load scenarios.
+    | For most use cases, the default single-session approach is sufficient.
+    |
+    */
+    'pool' => [
+        'enabled' => env('SAP_B1_POOL_ENABLED', false),
+
+        // Per-connection pool settings
+        'connections' => [
+            'default' => [
+                // Minimum idle sessions to maintain
+                'min_size' => 2,
+
+                // Maximum total sessions
+                'max_size' => 10,
+
+                // Idle session timeout in seconds (sessions unused for this duration will be closed)
+                'idle_timeout' => 600,
+
+                // Maximum time to wait for a session in seconds
+                'wait_timeout' => 30,
+            ],
+        ],
+
+        // Session distribution algorithm: 'round_robin', 'least_connections', 'lifo'
+        'algorithm' => 'round_robin',
+
+        // Cleanup interval for expired sessions (in seconds)
+        'cleanup_interval' => 60,
     ],
 
     /*

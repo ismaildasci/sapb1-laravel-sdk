@@ -12,6 +12,13 @@ use Illuminate\Contracts\Support\Arrayable;
 class ODataBuilder implements Arrayable
 {
     /**
+     * Valid OData comparison operators.
+     */
+    private const VALID_OPERATORS = [
+        'eq', 'ne', 'gt', 'ge', 'lt', 'le',
+    ];
+
+    /**
      * @var array<int, string>
      */
     protected array $select = [];
@@ -38,6 +45,11 @@ class ODataBuilder implements Arrayable
     protected bool $inlineCount = false;
 
     protected ?string $crossCompany = null;
+
+    /**
+     * Whether to validate field names and operators.
+     */
+    protected bool $strictMode = true;
 
     /**
      * Create a new ODataBuilder instance.
@@ -73,12 +85,19 @@ class ODataBuilder implements Arrayable
 
     /**
      * Add a where condition (alias for filter with eq operator).
+     *
+     * @throws \InvalidArgumentException
      */
     public function where(string $field, mixed $operator, mixed $value = null): self
     {
         if ($value === null) {
             $value = $operator;
             $operator = 'eq';
+        }
+
+        if ($this->strictMode) {
+            $this->validateField($field);
+            $this->validateOperator($operator);
         }
 
         $formattedValue = $this->formatValue($value);
@@ -88,12 +107,19 @@ class ODataBuilder implements Arrayable
 
     /**
      * Add an or where condition.
+     *
+     * @throws \InvalidArgumentException
      */
     public function orWhere(string $field, mixed $operator, mixed $value = null): self
     {
         if ($value === null) {
             $value = $operator;
             $operator = 'eq';
+        }
+
+        if ($this->strictMode) {
+            $this->validateField($field);
+            $this->validateOperator($operator);
         }
 
         $formattedValue = $this->formatValue($value);
@@ -409,6 +435,54 @@ class ODataBuilder implements Arrayable
     protected function escapeString(string $value): string
     {
         return str_replace("'", "''", $value);
+    }
+
+    /**
+     * Validate a field name for OData safety.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function validateField(string $field): void
+    {
+        // Field names should only contain alphanumeric characters, underscores, and dots (for nested properties)
+        // Also allow forward slashes for nested entity navigation (e.g., "Address/City")
+        if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_\/\.]*$/', $field)) {
+            throw new \InvalidArgumentException(
+                "Invalid field name '{$field}'. Field names must start with a letter or underscore and contain only alphanumeric characters, underscores, dots, or forward slashes."
+            );
+        }
+    }
+
+    /**
+     * Validate an operator for OData safety.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function validateOperator(string $operator): void
+    {
+        if (! in_array(strtolower($operator), self::VALID_OPERATORS, true)) {
+            throw new \InvalidArgumentException(
+                "Invalid operator '{$operator}'. Valid operators are: ".implode(', ', self::VALID_OPERATORS)
+            );
+        }
+    }
+
+    /**
+     * Enable or disable strict validation mode.
+     */
+    public function strictMode(bool $enabled = true): self
+    {
+        $this->strictMode = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Disable strict validation mode (use with caution).
+     */
+    public function withoutStrictMode(): self
+    {
+        return $this->strictMode(false);
     }
 
     /**

@@ -16,6 +16,13 @@ class FileSessionDriver implements SessionStoreInterface
 
     protected int $refreshThreshold;
 
+    /**
+     * Active file lock handles.
+     *
+     * @var array<string, resource>
+     */
+    protected array $lockHandles = [];
+
     public function __construct(
         protected Filesystem $files
     ) {
@@ -89,22 +96,44 @@ class FileSessionDriver implements SessionStoreInterface
     {
         $lockPath = $this->getLockFilePath($connection);
 
-        // Check if lock exists and is still valid
-        if ($this->files->exists($lockPath)) {
-            $lockTime = (int) $this->files->get($lockPath);
+        // Use flock for atomic lock acquisition (prevents TOCTOU race condition)
+        $handle = @fopen($lockPath, 'c');
 
-            if (time() - $lockTime < $seconds) {
-                return false;
-            }
+        if ($handle === false) {
+            return false;
         }
 
-        $this->files->put($lockPath, (string) time());
+        // Try to acquire exclusive lock without blocking
+        if (! flock($handle, LOCK_EX | LOCK_NB)) {
+            fclose($handle);
+
+            return false;
+        }
+
+        // Write timestamp for debugging/monitoring
+        ftruncate($handle, 0);
+        fwrite($handle, (string) time());
+        fflush($handle);
+
+        // Store handle for later release
+        $this->lockHandles[$connection] = $handle;
 
         return true;
     }
 
     public function releaseLock(string $connection): void
     {
+        if (isset($this->lockHandles[$connection])) {
+            $handle = $this->lockHandles[$connection];
+
+            // Release lock and close handle
+            flock($handle, LOCK_UN);
+            fclose($handle);
+
+            unset($this->lockHandles[$connection]);
+        }
+
+        // Clean up lock file
         $lockPath = $this->getLockFilePath($connection);
 
         if ($this->files->exists($lockPath)) {

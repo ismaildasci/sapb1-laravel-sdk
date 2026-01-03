@@ -102,6 +102,60 @@ class SessionManager
     }
 
     /**
+     * Invalidate and refresh the session for the given connection.
+     * Used when a 401 error indicates the session is no longer valid.
+     */
+    public function invalidateAndRefresh(string $connection = 'default'): SessionData
+    {
+        $session = $this->store->get($connection);
+        $this->store->forget($connection);
+
+        if ($session !== null) {
+            SessionExpired::dispatch($connection, $session->sessionId);
+        }
+
+        return $this->login($connection);
+    }
+
+    /**
+     * Check if the given error response indicates a session error.
+     *
+     * @param  array<string, mixed>|null  $responseData
+     */
+    public function isSessionError(?array $responseData): bool
+    {
+        if ($responseData === null) {
+            return false;
+        }
+
+        $errorCode = $responseData['error']['code'] ?? null;
+        $errorMessage = $responseData['error']['message']['value']
+            ?? $responseData['error']['message']
+            ?? '';
+
+        // SAP B1 Session Error Codes
+        $sessionErrorCodes = [
+            301,   // Invalid session
+            -301,  // Session expired
+        ];
+
+        // Check error code
+        if ($errorCode !== null && in_array((int) $errorCode, $sessionErrorCodes, true)) {
+            return true;
+        }
+
+        // Check error message for session-related keywords
+        $sessionKeywords = ['session', 'Session', 'login', 'Login', 'unauthorized', 'Unauthorized'];
+        foreach ($sessionKeywords as $keyword) {
+            if (str_contains((string) $errorMessage, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Clear all stored sessions.
      */
     public function clearAllSessions(): void

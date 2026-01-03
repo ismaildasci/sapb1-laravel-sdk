@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SapB1\Client;
 
 use SapB1\Exceptions\AuthenticationException;
+use SapB1\Exceptions\ServiceLayerException;
 use SapB1\Exceptions\SessionExpiredException;
 use SapB1\Session\SessionManager;
 
@@ -18,6 +19,21 @@ class SapB1Client
     protected string $connection = 'default';
 
     protected ?ODataBuilder $odata = null;
+
+    /**
+     * Whether to automatically refresh session on 401 errors.
+     */
+    protected bool $autoRefreshSession = true;
+
+    /**
+     * Number of session refresh retries attempted.
+     */
+    protected int $sessionRefreshAttempts = 0;
+
+    /**
+     * Maximum session refresh retry attempts.
+     */
+    protected int $maxSessionRefreshAttempts = 1;
 
     /**
      * @var array<string, mixed>
@@ -128,7 +144,7 @@ class SapB1Client
      */
     public function get(string $endpoint): Response
     {
-        return $this->request()->get($endpoint);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->get($endpoint));
     }
 
     /**
@@ -138,7 +154,7 @@ class SapB1Client
     {
         $formattedKey = $this->formatKey($key);
 
-        return $this->request()->get("{$endpoint}({$formattedKey})");
+        return $this->executeWithAutoRefresh(fn () => $this->request()->get("{$endpoint}({$formattedKey})"));
     }
 
     /**
@@ -148,7 +164,7 @@ class SapB1Client
      */
     public function create(string $endpoint, array $data): Response
     {
-        return $this->request()->post($endpoint, $data);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->post($endpoint, $data));
     }
 
     /**
@@ -160,7 +176,7 @@ class SapB1Client
     {
         $formattedKey = $this->formatKey($key);
 
-        return $this->request()->patch("{$endpoint}({$formattedKey})", $data);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->patch("{$endpoint}({$formattedKey})", $data));
     }
 
     /**
@@ -170,7 +186,7 @@ class SapB1Client
     {
         $formattedKey = $this->formatKey($key);
 
-        return $this->request()->delete("{$endpoint}({$formattedKey})");
+        return $this->executeWithAutoRefresh(fn () => $this->request()->delete("{$endpoint}({$formattedKey})"));
     }
 
     /**
@@ -182,7 +198,7 @@ class SapB1Client
     {
         $formattedKey = $this->formatKey($key);
 
-        return $this->request()->post("{$endpoint}({$formattedKey})/{$action}", $params);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->post("{$endpoint}({$formattedKey})/{$action}", $params));
     }
 
     /**
@@ -204,7 +220,15 @@ class SapB1Client
             return null;
         }
 
-        $endpoint = basename($path);
+        // Remove the /b1s/v1/ prefix from the path to get the endpoint
+        // Example: /b1s/v1/BusinessPartners -> BusinessPartners
+        $endpoint = preg_replace('#^/b1s/v\d+/#', '', $path);
+
+        if ($endpoint === null || $endpoint === '' || $endpoint === $path) {
+            // Fallback: try to get the last segment if regex fails
+            $segments = explode('/', trim($path, '/'));
+            $endpoint = end($segments) ?: '';
+        }
 
         if ($query !== false && $query !== null) {
             $endpoint .= '?'.$query;
@@ -267,7 +291,7 @@ class SapB1Client
      */
     public function post(string $endpoint, array $data = []): Response
     {
-        return $this->request()->post($endpoint, $data);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->post($endpoint, $data));
     }
 
     /**
@@ -277,7 +301,7 @@ class SapB1Client
      */
     public function put(string $endpoint, array $data = []): Response
     {
-        return $this->request()->put($endpoint, $data);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->put($endpoint, $data));
     }
 
     /**
@@ -287,7 +311,7 @@ class SapB1Client
      */
     public function patch(string $endpoint, array $data = []): Response
     {
-        return $this->request()->patch($endpoint, $data);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->patch($endpoint, $data));
     }
 
     /**
@@ -295,7 +319,7 @@ class SapB1Client
      */
     public function rawDelete(string $endpoint): Response
     {
-        return $this->request()->delete($endpoint);
+        return $this->executeWithAutoRefresh(fn () => $this->request()->delete($endpoint));
     }
 
     /**
@@ -328,6 +352,67 @@ class SapB1Client
     public function getConnection(): string
     {
         return $this->connection;
+    }
+
+    /**
+     * Enable or disable automatic session refresh on 401 errors.
+     */
+    public function withAutoRefresh(bool $enabled = true): self
+    {
+        $clone = clone $this;
+        $clone->autoRefreshSession = $enabled;
+
+        return $clone;
+    }
+
+    /**
+     * Disable automatic session refresh.
+     */
+    public function withoutAutoRefresh(): self
+    {
+        return $this->withAutoRefresh(false);
+    }
+
+    /**
+     * Execute a request with automatic session refresh on 401 errors.
+     *
+     * @param  callable(): Response  $callback
+     */
+    protected function executeWithAutoRefresh(callable $callback): Response
+    {
+        $this->sessionRefreshAttempts = 0;
+
+        try {
+            return $callback();
+        } catch (ServiceLayerException $e) {
+            if (! $this->autoRefreshSession) {
+                throw $e;
+            }
+
+            if ($e->getStatusCode() !== 401) {
+                throw $e;
+            }
+
+            // Check if this is a session error
+            if (! $this->sessionManager->isSessionError($e->context['response'] ?? null)) {
+                throw $e;
+            }
+
+            if ($this->sessionRefreshAttempts >= $this->maxSessionRefreshAttempts) {
+                throw new SessionExpiredException(
+                    message: 'Session expired and refresh attempts exhausted: '.$e->getMessage(),
+                    context: ['connection' => $this->connection]
+                );
+            }
+
+            $this->sessionRefreshAttempts++;
+
+            // Invalidate and refresh the session
+            $this->sessionManager->invalidateAndRefresh($this->connection);
+
+            // Retry the request
+            return $callback();
+        }
     }
 
     /**
