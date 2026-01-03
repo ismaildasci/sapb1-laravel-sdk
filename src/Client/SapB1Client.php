@@ -36,6 +36,11 @@ class SapB1Client
     protected int $maxSessionRefreshAttempts = 1;
 
     /**
+     * OData version to use ('v1' for OData v3, 'v2' for OData v4).
+     */
+    protected string $odataVersion = 'v1';
+
+    /**
      * @var array<string, mixed>
      */
     protected array $config;
@@ -374,6 +379,49 @@ class SapB1Client
     }
 
     /**
+     * Set the OData version to use.
+     *
+     * @param  string  $version  'v1' for OData v3, 'v2' for OData v4
+     */
+    public function withODataVersion(string $version): self
+    {
+        $clone = clone $this;
+        $clone->odataVersion = $version;
+
+        return $clone;
+    }
+
+    /**
+     * Use OData v4 (Service Layer v2 endpoint).
+     */
+    public function useODataV4(): self
+    {
+        return $this->withODataVersion('v2');
+    }
+
+    /**
+     * Use OData v3 (Service Layer v1 endpoint).
+     */
+    public function useODataV3(): self
+    {
+        return $this->withODataVersion('v1');
+    }
+
+    /**
+     * Get the current OData version.
+     */
+    public function getODataVersion(): string
+    {
+        // Instance property takes priority if explicitly set (not default 'v1')
+        if ($this->odataVersion !== 'v1') {
+            return $this->odataVersion;
+        }
+
+        // Otherwise use config, fallback to instance property
+        return $this->config['odata_version'] ?? $this->odataVersion;
+    }
+
+    /**
      * Execute a request with automatic session refresh on 401 errors.
      *
      * @param  callable(): Response  $callback
@@ -488,7 +536,9 @@ class SapB1Client
         /** @var string $baseUrl */
         $baseUrl = $this->config['base_url'] ?? '';
 
-        return rtrim($baseUrl, '/').'/b1s/v1';
+        $version = $this->getODataVersion();
+
+        return rtrim($baseUrl, '/').'/b1s/'.$version;
     }
 
     /**

@@ -92,6 +92,20 @@ readonly class SessionData implements Arrayable, JsonSerializable
     }
 
     /**
+     * Get the remaining TTL in seconds.
+     */
+    public function getRemainingTtl(): int
+    {
+        if ($this->isExpired()) {
+            return 0;
+        }
+
+        $remaining = CarbonImmutable::now()->diffInSeconds($this->expiresAt, absolute: false);
+
+        return max(0, (int) $remaining);
+    }
+
+    /**
      * Create a new instance with refreshed expiry time.
      */
     public function refresh(int $ttl = 1680): self

@@ -64,13 +64,43 @@ class PendingRequest
     /**
      * @var array<int, int>
      */
-    protected array $retryWhen = [500, 502, 503, 504];
+    protected array $retryWhen = [429, 500, 502, 503, 504];
+
+    /**
+     * Special delay for 502 proxy errors (milliseconds).
+     */
+    protected int $proxyErrorDelay = 5000;
+
+    /**
+     * Maximum retry attempts for 502 proxy errors.
+     */
+    protected int $proxyErrorMaxAttempts = 5;
 
     protected bool $verify = true;
 
     protected bool $loggingEnabled = false;
 
     protected ?string $logChannel = null;
+
+    /**
+     * Request compression enabled.
+     */
+    protected bool $compressionEnabled = false;
+
+    /**
+     * Minimum body size for compression (bytes).
+     */
+    protected int $compressionMinSize = 1024;
+
+    /**
+     * Request ID for tracking.
+     */
+    protected ?string $requestId = null;
+
+    /**
+     * Auto-generate request ID for all requests.
+     */
+    protected bool $autoRequestId = false;
 
     /**
      * Create a new PendingRequest instance.
@@ -90,6 +120,17 @@ class PendingRequest
         $this->useExponentialBackoff = (bool) config('sap-b1.http.retry.exponential_backoff', true);
         $this->maxRetryDelay = (int) config('sap-b1.http.retry.max_delay', 30000);
         $this->jitterFactor = (float) config('sap-b1.http.retry.jitter', 0.1);
+
+        // Load proxy error config
+        $this->proxyErrorDelay = (int) config('sap-b1.http.retry.proxy_error_delay', 5000);
+        $this->proxyErrorMaxAttempts = (int) config('sap-b1.http.retry.proxy_error_max_attempts', 5);
+
+        // Load compression config
+        $this->compressionEnabled = (bool) config('sap-b1.http.compression.enabled', false);
+        $this->compressionMinSize = (int) config('sap-b1.http.compression.min_size', 1024);
+
+        // Load request ID config
+        $this->autoRequestId = (bool) config('sap-b1.http.request_id.auto', false);
     }
 
     /**
@@ -287,6 +328,48 @@ class PendingRequest
     }
 
     /**
+     * Enable request compression.
+     */
+    public function withCompression(bool $enabled = true): self
+    {
+        $this->compressionEnabled = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Disable request compression.
+     */
+    public function withoutCompression(): self
+    {
+        $this->compressionEnabled = false;
+
+        return $this;
+    }
+
+    /**
+     * Set a custom request ID for tracking.
+     */
+    public function withRequestId(?string $id = null): self
+    {
+        $this->requestId = $id ?? $this->generateRequestId();
+
+        return $this;
+    }
+
+    /**
+     * Generate a unique request ID.
+     */
+    protected function generateRequestId(): string
+    {
+        return sprintf(
+            'sapb1-%s-%s',
+            date('YmdHis'),
+            bin2hex(random_bytes(4))
+        );
+    }
+
+    /**
      * Send a GET request.
      */
     public function get(string $endpoint): Response
@@ -405,7 +488,7 @@ class PendingRequest
             } catch (RequestException $e) {
                 if ($this->shouldRetry($e->getResponse(), $attempt)) {
                     $this->logRetry($method, $endpoint, $attempt, 'RequestException: '.$e->getResponse()?->getStatusCode());
-                    $this->sleep($attempt);
+                    $this->sleepWithResponse($attempt, $e->getResponse());
 
                     continue;
                 }
@@ -443,6 +526,35 @@ class PendingRequest
      */
     protected function sleep(int $attempt): void
     {
+        $this->sleepWithResponse($attempt, null);
+    }
+
+    /**
+     * Sleep with response-aware delay (handles 429, 502 specially).
+     */
+    protected function sleepWithResponse(int $attempt, ?ResponseInterface $response): void
+    {
+        $statusCode = $response?->getStatusCode();
+
+        // Handle 429 Rate Limit with Retry-After header
+        if ($statusCode === 429 && $response !== null) {
+            $retryAfter = $this->parseRetryAfter($response);
+            if ($retryAfter !== null) {
+                sleep($retryAfter);
+
+                return;
+            }
+        }
+
+        // Handle 502 Proxy Error with longer delay
+        if ($statusCode === 502) {
+            $delay = $this->proxyErrorDelay * $attempt;
+            usleep($delay * 1000);
+
+            return;
+        }
+
+        // Default exponential backoff
         if ($this->useExponentialBackoff) {
             // Exponential backoff: base * 2^attempt
             $delay = min(
@@ -458,6 +570,35 @@ class PendingRequest
         }
 
         usleep($delay * 1000);
+    }
+
+    /**
+     * Parse the Retry-After header from a response.
+     *
+     * @return int|null Seconds to wait, or null if header not present/invalid
+     */
+    protected function parseRetryAfter(ResponseInterface $response): ?int
+    {
+        $header = $response->getHeaderLine('Retry-After');
+
+        if ($header === '') {
+            return null;
+        }
+
+        // Numeric seconds
+        if (is_numeric($header)) {
+            return max(1, (int) $header);
+        }
+
+        // HTTP-date format (RFC 7231)
+        $date = \DateTimeImmutable::createFromFormat(\DateTimeInterface::RFC7231, $header);
+        if ($date !== false) {
+            $seconds = $date->getTimestamp() - time();
+
+            return max(1, $seconds);
+        }
+
+        return null;
     }
 
     /**
@@ -477,6 +618,11 @@ class PendingRequest
             'endpoint' => $endpoint,
             'headers' => $this->sanitizeHeaders($options['headers'] ?? []),
         ];
+
+        // Include request ID for correlation
+        if ($this->requestId !== null) {
+            $context['request_id'] = $this->requestId;
+        }
 
         if (isset($options['json'])) {
             $context['body'] = $this->sanitizeBody($options['json']);
@@ -604,8 +750,20 @@ class PendingRequest
      */
     protected function buildOptions(): array
     {
+        $headers = $this->headers;
+
+        // Auto-generate request ID if enabled
+        if ($this->autoRequestId && $this->requestId === null) {
+            $this->requestId = $this->generateRequestId();
+        }
+
+        // Add request ID header
+        if ($this->requestId !== null) {
+            $headers['X-Request-ID'] = $this->requestId;
+        }
+
         $options = [
-            'headers' => $this->headers,
+            'headers' => $headers,
             'timeout' => $this->timeout,
             'connect_timeout' => $this->connectTimeout,
             'verify' => $this->verify,
@@ -613,7 +771,24 @@ class PendingRequest
         ];
 
         if ($this->body !== null) {
-            $options['json'] = $this->body;
+            // Check if compression should be applied
+            if ($this->compressionEnabled) {
+                $json = json_encode($this->body, JSON_UNESCAPED_UNICODE);
+                if ($json !== false && strlen($json) >= $this->compressionMinSize) {
+                    $compressed = gzencode($json);
+                    if ($compressed !== false) {
+                        $options['body'] = $compressed;
+                        $options['headers']['Content-Encoding'] = 'gzip';
+                        $options['headers']['Content-Type'] = 'application/json';
+                    } else {
+                        $options['json'] = $this->body;
+                    }
+                } else {
+                    $options['json'] = $this->body;
+                }
+            } else {
+                $options['json'] = $this->body;
+            }
         }
 
         return array_merge($options, $this->options);
@@ -624,15 +799,23 @@ class PendingRequest
      */
     protected function shouldRetry(?ResponseInterface $response, int $attempt): bool
     {
+        if ($response === null) {
+            return $attempt < max(1, $this->retryTimes);
+        }
+
+        $statusCode = $response->getStatusCode();
+
+        // 502 Proxy errors have their own max attempts
+        if ($statusCode === 502) {
+            return $attempt < $this->proxyErrorMaxAttempts;
+        }
+
+        // Standard retry check
         if ($attempt >= max(1, $this->retryTimes)) {
             return false;
         }
 
-        if ($response === null) {
-            return true;
-        }
-
-        return in_array($response->getStatusCode(), $this->retryWhen, true);
+        return in_array($statusCode, $this->retryWhen, true);
     }
 
     /**

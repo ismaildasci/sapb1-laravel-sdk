@@ -2,6 +2,54 @@
 
 All notable changes to `laravel-sapb1` will be documented in this file.
 
+## 1.5.0 - 2026-01-03
+
+### Added
+
+#### OData v4 Support
+- **Dual OData Version Support**: Both v1 (OData v3) and v2 (OData v4)
+  - `odata_version` config option per connection (default: 'v1')
+  - `useODataV4()` / `useODataV3()` / `withODataVersion()` fluent methods
+  - Backward compatible - v1 remains default
+  - SAP deprecated OData v3 in FP 2405
+
+#### Error Handling & Resilience
+- **429 Rate Limit Handling**: Automatic retry with Retry-After header
+  - `RateLimitException` for rate limit errors
+  - `parseRetryAfter()` for intelligent delay based on header
+  - Added 429 to default retry status codes
+- **502 Proxy Error Recovery**: Enhanced handling for proxy errors
+  - `ProxyException` for proxy-related errors
+  - Configurable longer delays for proxy errors (`proxy_error_delay`)
+  - Separate max retry count for 502 errors (`proxy_error_max_attempts`)
+
+#### Session Management
+- **Preemptive Session Renewal**: Proactive session refresh
+  - `getRemainingTtl()` method on SessionData
+  - Automatic refresh before timeout based on threshold
+  - Reduces latency caused by expired sessions
+
+#### Performance
+- **Request Compression**: Gzip compression for large payloads
+  - `withCompression()` / `withoutCompression()` methods
+  - Configurable minimum size threshold
+  - Automatic Content-Encoding header
+
+#### Observability
+- **Request ID Tracking**: X-Request-ID header support
+  - `withRequestId()` method for manual ID
+  - `auto` config for automatic ID generation
+  - Included in logs for correlation
+  - `getRequestId()` on Response class
+
+### Changed
+
+- Updated retry status codes to include 429 (rate limit)
+- Enhanced `sleepWithResponse()` for status-aware delays
+- Added `shouldRetry()` special handling for 502 errors
+
+---
+
 ## 1.4.0 - 2026-01-03
 
 ### Added

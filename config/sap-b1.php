@@ -31,6 +31,10 @@ return [
             'username' => env('SAP_B1_USERNAME'),
             'password' => env('SAP_B1_PASSWORD'),
             'language' => env('SAP_B1_LANGUAGE', 23), // 23 = Turkish
+
+            // OData version: 'v1' (OData v3) or 'v2' (OData v4)
+            // SAP deprecated OData v3 in FP 2405, but v1 remains widely used
+            'odata_version' => env('SAP_B1_ODATA_VERSION', 'v1'),
         ],
     ],
 
@@ -136,12 +140,27 @@ return [
         'retry' => [
             'times' => 3,
             'sleep' => 1000, // milliseconds (base delay)
-            'when' => [500, 502, 503, 504], // HTTP status codes to retry
+            'when' => [429, 500, 502, 503, 504], // HTTP status codes to retry
 
             // Exponential backoff configuration
             'exponential_backoff' => true,
             'max_delay' => 30000, // maximum delay in milliseconds
             'jitter' => 0.1, // random jitter factor (0-1)
+
+            // Special handling for 502 proxy errors
+            'proxy_error_delay' => 5000, // milliseconds per attempt
+            'proxy_error_max_attempts' => 5, // separate max for 502 errors
+        ],
+
+        // Request compression (gzip)
+        'compression' => [
+            'enabled' => env('SAP_B1_COMPRESSION', false),
+            'min_size' => 1024, // minimum body size in bytes to compress
+        ],
+
+        // Request ID tracking for correlation
+        'request_id' => [
+            'auto' => env('SAP_B1_AUTO_REQUEST_ID', false), // auto-generate for all requests
         ],
 
         // Endpoint-specific timeout overrides

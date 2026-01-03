@@ -115,6 +115,14 @@ readonly class Response implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
+     * Get the request ID from the response headers.
+     */
+    public function getRequestId(): ?string
+    {
+        return $this->header('X-Request-ID');
+    }
+
+    /**
      * Get the OData value array from the response.
      *
      * @return array<int, array<string, mixed>>
