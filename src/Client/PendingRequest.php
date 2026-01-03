@@ -8,6 +8,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\HandlerStack;
+use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
 use SapB1\Events\RequestFailed;
 use SapB1\Events\RequestSending;
@@ -17,7 +19,12 @@ use SapB1\Exceptions\ServiceLayerException;
 
 class PendingRequest
 {
-    protected Client $client;
+    /**
+     * Shared Guzzle client for connection pooling.
+     */
+    protected static ?Client $sharedClient = null;
+
+    protected ?Client $client = null;
 
     protected string $baseUrl = '';
 
@@ -48,12 +55,22 @@ class PendingRequest
 
     protected int $retrySleep = 1000;
 
+    protected int $maxRetryDelay = 30000;
+
+    protected bool $useExponentialBackoff = true;
+
+    protected float $jitterFactor = 0.1;
+
     /**
      * @var array<int, int>
      */
     protected array $retryWhen = [500, 502, 503, 504];
 
     protected bool $verify = true;
+
+    protected bool $loggingEnabled = false;
+
+    protected ?string $logChannel = null;
 
     /**
      * Create a new PendingRequest instance.
@@ -64,6 +81,15 @@ class PendingRequest
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
+
+        // Load logging config
+        $this->loggingEnabled = (bool) config('sap-b1.logging.enabled', false);
+        $this->logChannel = config('sap-b1.logging.channel');
+
+        // Load exponential backoff config
+        $this->useExponentialBackoff = (bool) config('sap-b1.http.retry.exponential_backoff', true);
+        $this->maxRetryDelay = (int) config('sap-b1.http.retry.max_delay', 30000);
+        $this->jitterFactor = (float) config('sap-b1.http.retry.jitter', 0.1);
     }
 
     /**
@@ -200,6 +226,26 @@ class PendingRequest
     }
 
     /**
+     * Enable or disable exponential backoff.
+     */
+    public function exponentialBackoff(bool $enabled = true): self
+    {
+        $this->useExponentialBackoff = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Set the maximum retry delay.
+     */
+    public function maxRetryDelay(int $milliseconds): self
+    {
+        $this->maxRetryDelay = $milliseconds;
+
+        return $this;
+    }
+
+    /**
      * Set SSL verification.
      */
     public function verify(bool $verify): self
@@ -215,6 +261,27 @@ class PendingRequest
     public function withoutVerifying(): self
     {
         $this->verify = false;
+
+        return $this;
+    }
+
+    /**
+     * Enable logging for this request.
+     */
+    public function withLogging(?string $channel = null): self
+    {
+        $this->loggingEnabled = true;
+        $this->logChannel = $channel ?? $this->logChannel;
+
+        return $this;
+    }
+
+    /**
+     * Disable logging for this request.
+     */
+    public function withoutLogging(): self
+    {
+        $this->loggingEnabled = false;
 
         return $this;
     }
@@ -292,6 +359,8 @@ class PendingRequest
             $options
         );
 
+        $this->logRequest($method, $endpoint, $options);
+
         $startTime = microtime(true);
         $attempt = 0;
 
@@ -311,9 +380,13 @@ class PendingRequest
                     $duration
                 );
 
+                $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration);
+
                 return new Response($response);
             } catch (ConnectException $e) {
                 if ($attempt >= max(1, $this->retryTimes)) {
+                    $this->logError($method, $endpoint, $e);
+
                     RequestFailed::dispatch(
                         $this->connection,
                         $method,
@@ -327,13 +400,17 @@ class PendingRequest
                     );
                 }
 
-                usleep($this->retrySleep * 1000);
+                $this->logRetry($method, $endpoint, $attempt, 'ConnectException');
+                $this->sleep($attempt);
             } catch (RequestException $e) {
                 if ($this->shouldRetry($e->getResponse(), $attempt)) {
-                    usleep($this->retrySleep * 1000);
+                    $this->logRetry($method, $endpoint, $attempt, 'RequestException: '.$e->getResponse()?->getStatusCode());
+                    $this->sleep($attempt);
 
                     continue;
                 }
+
+                $this->logError($method, $endpoint, $e);
 
                 RequestFailed::dispatch(
                     $this->connection,
@@ -344,6 +421,8 @@ class PendingRequest
 
                 throw $this->createException($e, $endpoint);
             } catch (GuzzleException $e) {
+                $this->logError($method, $endpoint, $e);
+
                 RequestFailed::dispatch(
                     $this->connection,
                     $method,
@@ -357,6 +436,151 @@ class PendingRequest
                 );
             }
         }
+    }
+
+    /**
+     * Sleep with exponential backoff and jitter.
+     */
+    protected function sleep(int $attempt): void
+    {
+        if ($this->useExponentialBackoff) {
+            // Exponential backoff: base * 2^attempt
+            $delay = min(
+                $this->maxRetryDelay,
+                $this->retrySleep * (2 ** ($attempt - 1))
+            );
+
+            // Add jitter to prevent thundering herd
+            $jitter = (int) ($delay * $this->jitterFactor * (mt_rand() / mt_getrandmax()));
+            $delay += $jitter;
+        } else {
+            $delay = $this->retrySleep;
+        }
+
+        usleep($delay * 1000);
+    }
+
+    /**
+     * Log the outgoing request.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    protected function logRequest(string $method, string $endpoint, array $options): void
+    {
+        if (! $this->loggingEnabled) {
+            return;
+        }
+
+        $context = [
+            'connection' => $this->connection,
+            'method' => $method,
+            'endpoint' => $endpoint,
+            'headers' => $this->sanitizeHeaders($options['headers'] ?? []),
+        ];
+
+        if (isset($options['json'])) {
+            $context['body'] = $this->sanitizeBody($options['json']);
+        }
+
+        $this->log('debug', "SAP B1 Request: {$method} {$endpoint}", $context);
+    }
+
+    /**
+     * Log the response.
+     */
+    protected function logResponse(string $method, string $endpoint, int $statusCode, float $duration): void
+    {
+        if (! $this->loggingEnabled) {
+            return;
+        }
+
+        $this->log('debug', "SAP B1 Response: {$method} {$endpoint}", [
+            'connection' => $this->connection,
+            'status' => $statusCode,
+            'duration_ms' => round($duration * 1000, 2),
+        ]);
+    }
+
+    /**
+     * Log a retry attempt.
+     */
+    protected function logRetry(string $method, string $endpoint, int $attempt, string $reason): void
+    {
+        if (! $this->loggingEnabled) {
+            return;
+        }
+
+        $this->log('warning', "SAP B1 Retry: {$method} {$endpoint}", [
+            'connection' => $this->connection,
+            'attempt' => $attempt,
+            'max_attempts' => $this->retryTimes,
+            'reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Log an error.
+     */
+    protected function logError(string $method, string $endpoint, \Throwable $e): void
+    {
+        if (! $this->loggingEnabled) {
+            return;
+        }
+
+        $this->log('error', "SAP B1 Error: {$method} {$endpoint}", [
+            'connection' => $this->connection,
+            'error' => $e->getMessage(),
+            'exception' => get_class($e),
+        ]);
+    }
+
+    /**
+     * Write to log.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    protected function log(string $level, string $message, array $context = []): void
+    {
+        $logger = $this->logChannel ? Log::channel($this->logChannel) : Log::getFacadeRoot();
+        $logger->{$level}($message, $context);
+    }
+
+    /**
+     * Sanitize headers for logging (remove sensitive data).
+     *
+     * @param  array<string, string>  $headers
+     * @return array<string, string>
+     */
+    protected function sanitizeHeaders(array $headers): array
+    {
+        $sensitive = ['Cookie', 'Authorization', 'B1SESSION'];
+
+        foreach ($sensitive as $key) {
+            if (isset($headers[$key])) {
+                $headers[$key] = '[REDACTED]';
+            }
+        }
+
+        return $headers;
+    }
+
+    /**
+     * Sanitize body for logging (remove sensitive data).
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    protected function sanitizeBody(array $body): array
+    {
+        $sensitive = ['Password', 'password', 'UserPassword', 'UserName', 'username'];
+
+        foreach ($sensitive as $key) {
+            if (isset($body[$key])) {
+                $body[$key] = '[REDACTED]';
+            }
+        }
+
+        return $body;
     }
 
     /**
@@ -446,15 +670,35 @@ class PendingRequest
     }
 
     /**
-     * Get the Guzzle client.
+     * Get the Guzzle client (with connection pooling).
      */
     protected function getClient(): Client
     {
-        if (! isset($this->client)) {
-            $this->client = new Client;
+        // Use instance client if set (for testing)
+        if ($this->client !== null) {
+            return $this->client;
         }
 
-        return $this->client;
+        // Use shared client for connection pooling
+        if (self::$sharedClient === null) {
+            $stack = HandlerStack::create();
+
+            self::$sharedClient = new Client([
+                'handler' => $stack,
+                'headers' => [
+                    'Connection' => 'keep-alive',
+                ],
+                'curl' => [
+                    CURLOPT_FORBID_REUSE => false,
+                    CURLOPT_FRESH_CONNECT => false,
+                    CURLOPT_TCP_KEEPALIVE => 1,
+                    CURLOPT_TCP_KEEPIDLE => 60,
+                    CURLOPT_TCP_KEEPINTVL => 30,
+                ],
+            ]);
+        }
+
+        return self::$sharedClient;
     }
 
     /**
@@ -465,6 +709,22 @@ class PendingRequest
         $this->client = $client;
 
         return $this;
+    }
+
+    /**
+     * Reset the shared client (for testing).
+     */
+    public static function resetSharedClient(): void
+    {
+        self::$sharedClient = null;
+    }
+
+    /**
+     * Get the shared client instance (for batch requests).
+     */
+    public static function getSharedClient(): ?Client
+    {
+        return self::$sharedClient;
     }
 
     /**

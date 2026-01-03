@@ -92,9 +92,91 @@ return [
         // Retry configuration for failed requests
         'retry' => [
             'times' => 3,
-            'sleep' => 1000, // milliseconds
+            'sleep' => 1000, // milliseconds (base delay)
             'when' => [500, 502, 503, 504], // HTTP status codes to retry
+
+            // Exponential backoff configuration
+            'exponential_backoff' => true,
+            'max_delay' => 30000, // maximum delay in milliseconds
+            'jitter' => 0.1, // random jitter factor (0-1)
         ],
+
+        // Endpoint-specific timeout overrides
+        'timeouts' => [
+            // 'Reports/*' => 120,
+            // 'ProductionOrders' => 60,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Enable caching for query results to improve performance.
+    | When enabled, GET requests can be cached based on the endpoint
+    | and query parameters.
+    |
+    */
+    'cache' => [
+        'enabled' => env('SAP_B1_CACHE_ENABLED', false),
+        'driver' => env('SAP_B1_CACHE_DRIVER', 'file'),
+        'ttl' => 300, // 5 minutes default
+        'prefix' => 'sap_b1_cache:',
+
+        // Endpoints to cache (glob patterns)
+        'include' => [
+            // 'Items',
+            // 'BusinessPartners',
+        ],
+
+        // Endpoints to never cache
+        'exclude' => [
+            'Login',
+            'Logout',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the attachments API for file uploads and downloads.
+    |
+    */
+    'attachments' => [
+        // Maximum file size in bytes (default: 10MB)
+        'max_size' => 10 * 1024 * 1024,
+
+        // Allowed file extensions
+        'allowed_extensions' => [
+            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'csv',
+            'jpg', 'jpeg', 'png', 'gif', 'bmp',
+            'zip', 'rar', '7z',
+        ],
+
+        // Temporary storage path for downloads
+        'temp_path' => storage_path('app/sap-b1-attachments'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Profiling Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Enable query profiling to track performance of SAP B1 requests.
+    | Useful for debugging and optimization.
+    |
+    */
+    'profiling' => [
+        'enabled' => env('SAP_B1_PROFILING', false),
+
+        // Log slow queries (in milliseconds)
+        'slow_query_threshold' => 1000,
+
+        // Store profiling data
+        'store' => 'log', // 'log', 'database', 'redis'
     ],
 
     /*
@@ -109,6 +191,14 @@ return [
     'logging' => [
         'enabled' => env('SAP_B1_LOGGING', false),
         'channel' => env('SAP_B1_LOG_CHANNEL'),
+
+        // Log levels for different events
+        'levels' => [
+            'request' => 'debug',
+            'response' => 'debug',
+            'error' => 'error',
+            'retry' => 'warning',
+        ],
     ],
 
     /*

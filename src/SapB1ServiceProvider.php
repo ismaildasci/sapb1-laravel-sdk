@@ -8,12 +8,15 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Redis\RedisManager;
+use SapB1\Cache\CacheInvalidator;
+use SapB1\Cache\QueryCache;
 use SapB1\Client\SapB1Client;
 use SapB1\Commands\SapB1HealthCommand;
 use SapB1\Commands\SapB1SessionCommand;
 use SapB1\Commands\SapB1StatusCommand;
 use SapB1\Contracts\SessionStoreInterface;
 use SapB1\Health\SapB1HealthCheck;
+use SapB1\Profiling\QueryProfiler;
 use SapB1\Session\Drivers\DatabaseSessionDriver;
 use SapB1\Session\Drivers\FileSessionDriver;
 use SapB1\Session\Drivers\RedisSessionDriver;
@@ -42,6 +45,8 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $this->registerSessionManager();
         $this->registerClient();
         $this->registerHealthCheck();
+        $this->registerCache();
+        $this->registerProfiler();
     }
 
     public function packageBooted(): void
@@ -115,15 +120,49 @@ class SapB1ServiceProvider extends PackageServiceProvider
     }
 
     /**
+     * Register the query cache and cache invalidator.
+     */
+    protected function registerCache(): void
+    {
+        $this->app->singleton(QueryCache::class, function (): QueryCache {
+            return new QueryCache;
+        });
+
+        $this->app->singleton(CacheInvalidator::class, function (Application $app): CacheInvalidator {
+            return new CacheInvalidator(
+                $app->make(QueryCache::class)
+            );
+        });
+
+        // Aliases for convenience
+        $this->app->alias(QueryCache::class, 'sap-b1.cache');
+        $this->app->alias(CacheInvalidator::class, 'sap-b1.cache.invalidator');
+    }
+
+    /**
+     * Register the query profiler.
+     */
+    protected function registerProfiler(): void
+    {
+        $this->app->singleton(QueryProfiler::class, function (): QueryProfiler {
+            return new QueryProfiler;
+        });
+
+        $this->app->alias(QueryProfiler::class, 'sap-b1.profiler');
+    }
+
+    /**
      * Boot the about command integration.
      */
     protected function bootAboutCommand(): void
     {
         if (class_exists(\Illuminate\Foundation\Console\AboutCommand::class)) {
             \Illuminate\Foundation\Console\AboutCommand::add('SAP B1 SDK', fn (): array => [
-                'Version' => '1.0.0',
+                'Version' => '1.3.0',
                 'Session Driver' => (string) config('sap-b1.session.driver', 'file'),
                 'Default Connection' => (string) config('sap-b1.default', 'default'),
+                'Cache Enabled' => config('sap-b1.cache.enabled', false) ? 'Yes' : 'No',
+                'Profiling Enabled' => config('sap-b1.profiling.enabled', false) ? 'Yes' : 'No',
             ]);
         }
     }

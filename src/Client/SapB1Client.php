@@ -10,6 +10,11 @@ use SapB1\Session\SessionManager;
 
 class SapB1Client
 {
+    /**
+     * Attachments manager instance.
+     */
+    protected ?AttachmentsManager $attachmentsManager = null;
+
     protected string $connection = 'default';
 
     protected ?ODataBuilder $odata = null;
@@ -59,6 +64,53 @@ class SapB1Client
     public function service(string $endpoint): ServiceEndpoint
     {
         return new ServiceEndpoint($this, $endpoint);
+    }
+
+    /**
+     * Create a new batch request.
+     *
+     * @example $client->batch()->post('Orders', $data)->post('DeliveryNotes', $data)->execute()
+     */
+    public function batch(): BatchRequest
+    {
+        return new BatchRequest(
+            $this->getBaseUrl(),
+            $this->getSession()
+        );
+    }
+
+    /**
+     * Get the attachments manager.
+     *
+     * @example $client->attachments()->upload('Orders', 123, $file)
+     */
+    public function attachments(): AttachmentsManager
+    {
+        if ($this->attachmentsManager === null) {
+            $this->attachmentsManager = new AttachmentsManager($this);
+        }
+
+        return $this->attachmentsManager;
+    }
+
+    /**
+     * Create a new SQL query builder.
+     *
+     * @example $client->sql('MyStoredQuery')->param('CardCode', 'C001')->execute()
+     */
+    public function sql(string $queryName): SqlQueryBuilder
+    {
+        return new SqlQueryBuilder($this, $queryName);
+    }
+
+    /**
+     * Create a new semantic layer query.
+     *
+     * @example $client->semantic('SalesAnalysis')->dimensions('CardCode', 'ItemCode')->measures('DocTotal')->execute()
+     */
+    public function semantic(string $queryName): SemanticLayerClient
+    {
+        return new SemanticLayerClient($this, $queryName);
     }
 
     /**

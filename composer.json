@@ -2,7 +2,7 @@
     "name": "ismaildasci/laravel-sapb1",
     "description": "A Laravel package for SAP Business One Service Layer API integration",
     "keywords": [
-        "İsmail Daşcı",
+        "ismaildasci",
         "laravel",
         "laravel-sapb1"
     ],
@@ -10,7 +10,7 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "İsmail Daşcı",
+            "name": "ismaildasci",
             "email": "hello@ismaildasci.com",
             "role": "Developer"
         }
