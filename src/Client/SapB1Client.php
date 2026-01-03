@@ -51,6 +51,17 @@ class SapB1Client
     }
 
     /**
+     * Get a fluent service endpoint for an entity.
+     *
+     * @example $client->service('BusinessPartners')->find('C001')
+     * @example $client->service('Orders')->create(['CardCode' => 'C001'])
+     */
+    public function service(string $endpoint): ServiceEndpoint
+    {
+        return new ServiceEndpoint($this, $endpoint);
+    }
+
+    /**
      * Set the OData query builder.
      */
     public function withOData(ODataBuilder $odata): self

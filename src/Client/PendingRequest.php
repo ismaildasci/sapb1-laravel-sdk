@@ -429,8 +429,9 @@ class PendingRequest
             ?? $decoded['error']
             ?? $e->getMessage();
 
-        /** @var string|null $code */
-        $code = $decoded['error']['code'] ?? null;
+        /** @var string|int|null $rawCode */
+        $rawCode = $decoded['error']['code'] ?? null;
+        $code = $rawCode !== null ? (string) $rawCode : null;
 
         return new ServiceLayerException(
             message: $message ?? 'Request failed',
