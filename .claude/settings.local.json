@@ -14,7 +14,8 @@
       "Bash(gh pr list:*)",
       "Bash(git show:*)",
       "Bash(php -r:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
