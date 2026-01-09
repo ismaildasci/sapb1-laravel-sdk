@@ -4,11 +4,21 @@ declare(strict_types=1);
 
 namespace SapB1\Client;
 
+use Closure;
+use SapB1\ChangeDetection\ChangeDetector;
+use SapB1\Contracts\MiddlewareInterface;
 use SapB1\Contracts\SessionPoolInterface;
+use SapB1\Diagnostics\ConnectionDiagnostics;
 use SapB1\Exceptions\AuthenticationException;
 use SapB1\Exceptions\PoolExhaustedException;
 use SapB1\Exceptions\ServiceLayerException;
 use SapB1\Exceptions\SessionExpiredException;
+use SapB1\Health\SapB1HealthCheck;
+use SapB1\Metadata\MetadataManager;
+use SapB1\Middleware\MiddlewarePipeline;
+use SapB1\Services\AlertService;
+use SapB1\Services\AuditService;
+use SapB1\Services\CompanyService;
 use SapB1\Session\SessionData;
 use SapB1\Session\SessionManager;
 
@@ -142,6 +152,125 @@ class SapB1Client
     public function semantic(string $queryName): SemanticLayerClient
     {
         return new SemanticLayerClient($this, $queryName);
+    }
+
+    /**
+     * Get the metadata manager for schema discovery.
+     *
+     * @example $client->metadata()->entities()
+     * @example $client->metadata()->entity('BusinessPartners')
+     * @example $client->metadata()->hasField('BusinessPartners', 'U_CustomField')
+     */
+    public function metadata(): MetadataManager
+    {
+        return new MetadataManager($this, $this->connection);
+    }
+
+    /**
+     * Get the audit service for change/access logs.
+     *
+     * @example $client->audit()->entity('BusinessPartners')->key('C001')->get()
+     * @example $client->audit()->accessLog()->user('manager')->get()
+     */
+    public function audit(): AuditService
+    {
+        return new AuditService($this, $this->connection);
+    }
+
+    /**
+     * Get the alert service for internal messaging.
+     *
+     * @example $client->alerts()->send(['recipients' => ['manager'], 'subject' => 'Test', 'message' => 'Hello'])
+     * @example $client->alerts()->configurations()
+     */
+    public function alerts(): AlertService
+    {
+        return new AlertService($this, $this->connection);
+    }
+
+    /**
+     * Get company information service.
+     *
+     * @example $client->company()->info()
+     * @example $client->company()->name()
+     * @example $client->company()->isHana()
+     */
+    public function company(): CompanyService
+    {
+        return new CompanyService($this, $this->connection);
+    }
+
+    /**
+     * Get the change detector for monitoring entity changes.
+     *
+     * @example $detector = $client->changes(); $detector->watch('Orders')->onCreated(fn($e) => ...); $detector->poll();
+     */
+    public function changes(): ChangeDetector
+    {
+        return new ChangeDetector($this, $this->connection);
+    }
+
+    /**
+     * Get connection diagnostics.
+     *
+     * @example $client->diagnostics()->run()
+     * @example $client->diagnostics()->testConnectivity()
+     */
+    public function diagnostics(): ConnectionDiagnostics
+    {
+        return new ConnectionDiagnostics(
+            $this,
+            $this->sessionManager,
+            app(SapB1HealthCheck::class),
+            null,
+            $this->connection
+        );
+    }
+
+    /**
+     * Add global middleware to the request pipeline.
+     *
+     * @param  MiddlewareInterface|Closure(PendingRequest, Closure): Response  $middleware
+     */
+    public static function pushMiddleware(MiddlewareInterface|Closure $middleware): MiddlewarePipeline
+    {
+        return PendingRequest::getGlobalMiddleware()->push($middleware);
+    }
+
+    /**
+     * Prepend global middleware to the request pipeline.
+     *
+     * @param  MiddlewareInterface|Closure(PendingRequest, Closure): Response  $middleware
+     */
+    public static function prependMiddleware(MiddlewareInterface|Closure $middleware): MiddlewarePipeline
+    {
+        return PendingRequest::getGlobalMiddleware()->prepend($middleware);
+    }
+
+    /**
+     * Remove a middleware class from the global pipeline.
+     *
+     * @param  class-string<MiddlewareInterface>  $middlewareClass
+     */
+    public static function removeMiddleware(string $middlewareClass): MiddlewarePipeline
+    {
+        return PendingRequest::getGlobalMiddleware()->remove($middlewareClass);
+    }
+
+    /**
+     * Get the global middleware pipeline.
+     */
+    public static function middleware(): MiddlewarePipeline
+    {
+        return PendingRequest::getGlobalMiddleware();
+    }
+
+    /**
+     * Clear all global middleware.
+     */
+    public static function clearMiddleware(): MiddlewarePipeline
+    {
+        return PendingRequest::getGlobalMiddleware()->clear();
     }
 
     /**
