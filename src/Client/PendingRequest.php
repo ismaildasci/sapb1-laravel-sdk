@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SapB1\Client;
 
+use Closure;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -11,12 +12,14 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\HandlerStack;
 use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
+use SapB1\Contracts\MiddlewareInterface;
 use SapB1\Events\RequestFailed;
 use SapB1\Events\RequestSending;
 use SapB1\Events\RequestSent;
 use SapB1\Exceptions\CircuitBreakerOpenException;
 use SapB1\Exceptions\ConnectionException;
 use SapB1\Exceptions\ServiceLayerException;
+use SapB1\Middleware\MiddlewarePipeline;
 
 class PendingRequest
 {
@@ -112,6 +115,28 @@ class PendingRequest
      * Circuit breaker instance.
      */
     protected ?CircuitBreaker $circuitBreaker = null;
+
+    /**
+     * Request-level middleware.
+     *
+     * @var array<int, MiddlewareInterface|Closure>
+     */
+    protected array $middleware = [];
+
+    /**
+     * Global middleware pipeline (shared across requests).
+     */
+    protected static ?MiddlewarePipeline $globalMiddleware = null;
+
+    /**
+     * Method for current request (used by middleware).
+     */
+    protected string $method = 'GET';
+
+    /**
+     * Endpoint for current request (used by middleware).
+     */
+    protected string $endpoint = '';
 
     /**
      * Create a new PendingRequest instance.
@@ -403,6 +428,92 @@ class PendingRequest
     }
 
     /**
+     * Add middleware to this request.
+     *
+     * @param  MiddlewareInterface|Closure(PendingRequest, Closure): Response  $middleware
+     */
+    public function withMiddleware(MiddlewareInterface|Closure $middleware): self
+    {
+        $this->middleware[] = $middleware;
+
+        return $this;
+    }
+
+    /**
+     * Add multiple middleware to this request.
+     *
+     * @param  array<int, MiddlewareInterface|Closure>  $middleware
+     */
+    public function withMiddlewareStack(array $middleware): self
+    {
+        $this->middleware = array_merge($this->middleware, $middleware);
+
+        return $this;
+    }
+
+    /**
+     * Clear request-level middleware.
+     */
+    public function withoutMiddleware(): self
+    {
+        $this->middleware = [];
+
+        return $this;
+    }
+
+    /**
+     * Get the global middleware pipeline.
+     */
+    public static function getGlobalMiddleware(): MiddlewarePipeline
+    {
+        if (self::$globalMiddleware === null) {
+            self::$globalMiddleware = new MiddlewarePipeline;
+        }
+
+        return self::$globalMiddleware;
+    }
+
+    /**
+     * Reset the global middleware pipeline.
+     */
+    public static function resetGlobalMiddleware(): void
+    {
+        self::$globalMiddleware = null;
+    }
+
+    /**
+     * Get the current request method (for middleware).
+     */
+    public function getMethod(): string
+    {
+        return $this->method;
+    }
+
+    /**
+     * Get the current endpoint (for middleware).
+     */
+    public function getEndpoint(): string
+    {
+        return $this->endpoint;
+    }
+
+    /**
+     * Get the current request ID (for middleware).
+     */
+    public function getRequestId(): ?string
+    {
+        return $this->requestId;
+    }
+
+    /**
+     * Get the query string from OData builder (for middleware).
+     */
+    public function getQueryString(): string
+    {
+        return $this->odata?->build() ?? '';
+    }
+
+    /**
      * Get the circuit breaker instance.
      */
     protected function getCircuitBreaker(): CircuitBreaker
@@ -473,10 +584,48 @@ class PendingRequest
     }
 
     /**
-     * Send the HTTP request.
+     * Send the HTTP request (with middleware support).
      */
     protected function send(string $method, string $endpoint): Response
     {
+        $this->method = $method;
+        $this->endpoint = $endpoint;
+
+        // Build middleware pipeline
+        $pipeline = $this->buildMiddlewarePipeline();
+
+        // Execute through middleware
+        return $pipeline->process($this, fn (PendingRequest $request) => $request->executeRequest());
+    }
+
+    /**
+     * Build the combined middleware pipeline (global + request-level).
+     */
+    protected function buildMiddlewarePipeline(): MiddlewarePipeline
+    {
+        $pipeline = new MiddlewarePipeline;
+
+        // Add global middleware first
+        foreach (self::getGlobalMiddleware()->all() as $middleware) {
+            $pipeline->push($middleware);
+        }
+
+        // Add request-level middleware
+        foreach ($this->middleware as $middleware) {
+            $pipeline->push($middleware);
+        }
+
+        return $pipeline;
+    }
+
+    /**
+     * Execute the actual HTTP request (called by middleware pipeline).
+     */
+    public function executeRequest(): Response
+    {
+        $method = $this->method;
+        $endpoint = $this->endpoint;
+
         // Check circuit breaker before making request
         if ($this->circuitBreakerEnabled) {
             $cb = $this->getCircuitBreaker();

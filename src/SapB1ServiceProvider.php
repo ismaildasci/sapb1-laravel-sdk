@@ -21,6 +21,7 @@ use SapB1\Contracts\SessionPoolInterface;
 use SapB1\Contracts\SessionPoolStoreInterface;
 use SapB1\Contracts\SessionStoreInterface;
 use SapB1\Health\SapB1HealthCheck;
+use SapB1\MultiTenant\TenantManager;
 use SapB1\Profiling\QueryProfiler;
 use SapB1\Session\Drivers\DatabaseSessionDriver;
 use SapB1\Session\Drivers\FileSessionDriver;
@@ -29,6 +30,7 @@ use SapB1\Session\Pool\SessionPool;
 use SapB1\Session\Pool\Stores\DatabasePoolStore;
 use SapB1\Session\Pool\Stores\RedisPoolStore;
 use SapB1\Session\SessionManager;
+use SapB1\Telemetry\TelemetryService;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -61,6 +63,8 @@ class SapB1ServiceProvider extends PackageServiceProvider
         $this->registerCache();
         $this->registerProfiler();
         $this->registerCircuitBreaker();
+        $this->registerTenantManager();
+        $this->registerTelemetry();
     }
 
     public function packageBooted(): void
@@ -257,13 +261,44 @@ class SapB1ServiceProvider extends PackageServiceProvider
     }
 
     /**
+     * Register the tenant manager for multi-tenant support.
+     */
+    protected function registerTenantManager(): void
+    {
+        $this->app->singleton(TenantManager::class, function (): TenantManager {
+            return new TenantManager;
+        });
+
+        $this->app->alias(TenantManager::class, 'sap-b1.tenant');
+    }
+
+    /**
+     * Register telemetry service for OpenTelemetry integration.
+     */
+    protected function registerTelemetry(): void
+    {
+        $this->app->singleton(TelemetryService::class, function (): TelemetryService {
+            return TelemetryService::getInstance();
+        });
+
+        // Auto-enable if configured
+        if (config('sap-b1.telemetry.enabled', false)) {
+            $this->app->booted(function (): void {
+                TelemetryService::getInstance()->enable();
+            });
+        }
+
+        $this->app->alias(TelemetryService::class, 'sap-b1.telemetry');
+    }
+
+    /**
      * Boot the about command integration.
      */
     protected function bootAboutCommand(): void
     {
         if (class_exists(\Illuminate\Foundation\Console\AboutCommand::class)) {
             \Illuminate\Foundation\Console\AboutCommand::add('SAP B1 SDK', fn (): array => [
-                'Version' => '1.7.0',
+                'Version' => '1.8.0',
                 'Session Driver' => (string) config('sap-b1.session.driver', 'file'),
                 'Default Connection' => (string) config('sap-b1.default', 'default'),
                 'Session Pool' => config('sap-b1.pool.enabled', false) ? 'Enabled' : 'Disabled',

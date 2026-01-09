@@ -56,15 +56,20 @@ Full documentation is available in the [docs](docs/README.md) folder:
 - [Query Caching](docs/caching.md) - Performance optimization
 - [Attachments](docs/attachments.md) - File uploads & downloads
 - [SQL Queries](docs/sql-queries.md) - Stored queries & semantic layer
+- [Multi-Tenant](docs/multi-tenant.md) - Multi-tenant session isolation
 - [Testing](docs/testing.md) - Mocking & factories
 
 ## Features
 
-**Core** - Fluent OData query builder, automatic session management, multiple connections, rich response handling.
+**Core** - Fluent OData query builder, automatic session management, multiple connections, rich response handling, request middleware pipeline.
 
-**Performance** - Batch operations, query caching, request compression, connection pooling.
+**Performance** - Batch operations, query caching, request compression, connection pooling, schema caching.
 
-**Resilience** - Circuit breaker pattern, automatic retries with exponential backoff, session auto-refresh, rate limit handling.
+**Resilience** - Circuit breaker pattern, automatic retries with exponential backoff, session auto-refresh, rate limit handling, human-readable error messages.
+
+**Observability** - OpenTelemetry integration, connection diagnostics, query profiling, change detection.
+
+**Enterprise** - Multi-tenant session isolation, audit trail access, alert management, company info API.
 
 **Operations** - Artisan commands for status, health checks, session management, and pool administration.
 
@@ -97,6 +102,37 @@ $responses = $batch->execute();
 ```php
 // SAP deprecated OData v3 in FP 2405
 $response = SapB1::useODataV4()->get('Items');
+```
+
+### Change Detection
+
+```php
+// Watch for order changes (alternative to webhooks)
+$detector = SapB1::changes();
+$detector->watch('Orders')
+    ->track('DocStatus', 'DocTotal')
+    ->onCreated(fn($order) => dispatch(new NewOrderJob($order)))
+    ->onUpdated(fn($order, $changes) => Log::info('Order updated', $changes));
+
+$changes = $detector->poll(); // Run periodically
+```
+
+### Schema Discovery
+
+```php
+// Introspect SAP B1 entities
+$entities = SapB1::metadata()->entities();
+$schema = SapB1::metadata()->entity('BusinessPartners');
+$udfs = SapB1::metadata()->udfs('OCRD'); // User Defined Fields
+```
+
+### Multi-Tenant
+
+```php
+// Tenant-specific connections
+app(TenantManager::class)->forTenant('tenant-123', function() {
+    return SapB1::get('Orders')->value();
+});
 ```
 
 ### Health Monitoring

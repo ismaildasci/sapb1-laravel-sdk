@@ -2,6 +2,127 @@
 
 All notable changes to `laravel-sapb1` will be documented in this file.
 
+## 1.8.0 - 2026-01-09
+
+### Added
+
+#### Request Middleware Pipeline
+- **Middleware System**: Extensible request/response pipeline
+  - `MiddlewareInterface` contract for custom middleware
+  - `MiddlewarePipeline` for chaining middleware
+  - `SapB1Client::pushMiddleware()` / `prependMiddleware()` / `removeMiddleware()`
+  - Built-in middleware:
+    - `LoggingMiddleware`: Request/response logging with sensitive data masking
+    - `RetryMiddleware`: Configurable retries with exponential backoff
+    - `TenantMiddleware`: Multi-tenant header injection
+
+#### Metadata & Schema Discovery
+- **MetadataManager**: SAP B1 schema introspection
+  - `entities()`: List all available entity names
+  - `entity('Name')`: Get EntitySchema with fields, UDFs, navigation properties
+  - `hasEntity()` / `hasField()`: Quick existence checks
+  - `udos()`: List User Defined Objects
+  - `udts()`: List User Defined Tables
+  - `udfs('TableName')`: Get User Defined Fields for entity
+  - Automatic caching with configurable TTL
+  - OData v3 (XML) and v4 (JSON) metadata parsing
+
+#### SAP Error Code Database
+- **ErrorCodeDatabase**: Human-readable SAP error messages
+  - 50+ common SAP B1 error codes with descriptions
+  - Actionable suggestions for each error
+  - Error categories (authentication, validation, business_logic, etc.)
+  - `isRetryable()` flag for automatic retry decisions
+- **Enhanced ServiceLayerException**:
+  - `getHumanMessage()`: User-friendly error message
+  - `getSuggestion()`: How to fix the error
+  - `getCategory()`: Error classification
+  - `isRetryable()`: Whether retry might succeed
+
+#### Change Detection Service
+- **ChangeDetector**: Polling-based entity change tracking (webhook alternative)
+  - `watch('Entity')`: Start watching entity for changes
+  - `poll()`: Detect created/updated/deleted records
+  - Callback system: `onCreated()`, `onUpdated()`, `onDeleted()`
+  - Configurable track fields and filters
+  - State caching for efficient change detection
+- **EntityWatcher**: Configure what to watch
+  - `keyField()`: Set primary key field
+  - `track()`: Specify fields to monitor
+  - `where()`: Filter watched records
+  - `limit()`: Max records to track
+- **ChangeSet**: Detected changes container
+
+#### Audit Trail API
+- **AuditService**: Access SAP B1 change/access logs
+  - `entity('BusinessPartners')->key('C001')->get()`: Query change history
+  - `accessLog()->user('manager')->getAccessLog()`: Query access log
+  - Date filters: `since()`, `until()`, `between()`
+  - Maps to SAP history tables (ACRD, AITM, etc.)
+
+#### Alert Management API
+- **AlertService**: SAP B1 internal messaging
+  - `send()` / `sendMessage()`: Send internal messages
+  - `configurations()`: List alert rules
+  - `createRule()` / `updateRule()` / `deleteRule()`: Manage alerts
+  - `pending()`: Get unread alerts
+  - `markRead()`: Mark alert as read
+
+#### Company Info API
+- **CompanyService**: Company and system information
+  - `info()`: Full company information
+  - `name()` / `localCurrency()` / `country()` / `version()`
+  - `adminInfo()`: Administrative settings
+  - `serviceLayerInfo()`: Service Layer configuration
+  - `isHana()` / `isMultiBranch()`: System capabilities
+
+#### Connection Diagnostics
+- **ConnectionDiagnostics**: Comprehensive connection health
+  - `run()`: Full diagnostic report
+  - `testConnectivity()`: DNS, TCP, HTTP, Auth tests
+  - `measureLatency()`: Latency sampling with P95
+  - `getHealthStatus()`: Quick health check
+  - `getSessionStatus()`: Session information
+  - `getPerformanceMetrics()`: Profiler integration
+
+#### Multi-Tenant Session Isolation
+- **TenantManager**: Multi-tenant SAP B1 support
+  - `setTenant()` / `getTenant()`: Tenant context
+  - `setResolver()`: Custom tenant resolution
+  - `getConfig()`: Tenant-specific configuration
+  - `forTenant()`: Execute in tenant context
+- **TenantResolverInterface**: Implement custom resolution
+- **DatabaseTenantResolver**: Example database-based resolver
+- **TenantMiddleware**: Automatic tenant header injection
+
+#### OpenTelemetry Integration
+- **TelemetryService**: Distributed tracing support (optional)
+  - `enable()` / `disable()`: Toggle telemetry
+  - `recordMetric()`: Custom metrics
+  - `recordRequest()` / `recordDuration()` / `recordError()`
+  - Auto-enables via config when available
+- **OpenTelemetryMiddleware**: Automatic span creation
+  - Request/response attributes
+  - Error recording with stack traces
+  - Requires: `open-telemetry/sdk`, `open-telemetry/api`
+
+#### New SapB1Client Methods
+- `metadata()`: Access MetadataManager
+- `audit()`: Access AuditService
+- `alerts()`: Access AlertService
+- `company()`: Access CompanyService
+- `changes()`: Access ChangeDetector
+- `diagnostics()`: Access ConnectionDiagnostics
+
+### Changed
+
+- ServiceProvider registers TenantManager and TelemetryService
+- PendingRequest integrates middleware pipeline
+- ServiceLayerException enhanced with ErrorCodeDatabase integration
+- Version bumped to 1.8.0
+
+---
+
 ## 1.7.0 - 2026-01-03
 
 ### Added
