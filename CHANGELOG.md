@@ -2,6 +2,60 @@
 
 All notable changes to `laravel-sapb1` will be documented in this file.
 
+## 1.8.1 - 2026-01-11
+
+### Added
+
+#### Documentation
+- **10 New Documentation Files**: Comprehensive guides for SDK features
+  - Quick Start Guide (`docs/quick-start.md`)
+  - Making Requests (`docs/requests.md`)
+  - OData Query Builder (`docs/odata-query-builder.md`)
+  - Working with Responses (`docs/responses.md`)
+  - Multiple Connections (`docs/multiple-connections.md`)
+  - Health Checks (`docs/health-checks.md`)
+  - Artisan Commands (`docs/artisan-commands.md`)
+  - Events Lifecycle (`docs/events.md`)
+  - Error Handling (`docs/error-handling.md`)
+  - Testing Factories (`docs/testing-factories.md`)
+
+#### Tests
+- **63 New Unit Tests**: Expanded test coverage from 164 to 227 tests
+  - `MiddlewarePipelineTest`: 12 tests for middleware pipeline operations
+  - `EntityWatcherTest`: 17 tests for change detection watcher
+  - `ChangeSetTest`: 10 tests for change set operations
+  - `EntitySchemaTest`: 12 tests for schema inspection
+  - `FieldInfoTest`: 13 tests for field info and type checking
+
+### Changed
+
+#### ErrorCodeDatabase Enhancement
+- Expanded from ~50 to ~100+ error codes with categories:
+  - Production/Manufacturing errors
+  - Pricing and Tax calculation errors
+  - Payment processing errors
+  - Inventory transfer errors
+  - Project management errors
+  - Banking errors
+  - Configuration errors
+- Added HTTP status codes: 405, 406, 408, 412, 413, 415, 422, 429, 502, 503, 504
+
+#### AuditService Enhancement
+- Expanded entity mapping from 7 to 40+ entities:
+  - Master Data: BusinessPartners, Items, Warehouses, PriceLists, SalesPersons, Employees, ChartOfAccounts, Projects, Users, ItemGroups, BusinessPartnerGroups
+  - Sales Documents: Orders, Invoices, DeliveryNotes, Returns, CreditNotes, Quotations, DownPayments
+  - Purchasing Documents: PurchaseOrders, PurchaseDeliveryNotes, PurchaseInvoices, PurchaseReturns, PurchaseCreditNotes, PurchaseQuotations
+  - Inventory Documents: InventoryGenEntries, InventoryGenExits, StockTransfers, InventoryTransferRequests, InventoryCountings
+  - Financial Documents: JournalEntries, Payments, IncomingPayments
+  - Production: ProductionOrders, BillOfMaterials
+  - Service: ServiceCalls, ServiceContracts
+  - Banking: BankStatements, Checks
+  - Draft Documents: Drafts
+- Added `getSupportedEntities()` static method for entity listing
+- Added `isEntitySupported()` static method for entity validation
+
+---
+
 ## 1.8.0 - 2026-01-09
 
 ### Added

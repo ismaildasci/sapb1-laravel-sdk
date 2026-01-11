@@ -49,7 +49,17 @@ SAP_B1_PASSWORD=your_password
 
 Full documentation is available in the [docs](docs/README.md) folder:
 
+**Getting Started**
+- [Quick Start](docs/quick-start.md) - Get up and running in minutes
 - [Installation](docs/installation.md) & [Configuration](docs/configuration.md)
+
+**Core Concepts**
+- [Making Requests](docs/requests.md) - CRUD operations & request methods
+- [OData Query Builder](docs/odata-query-builder.md) - Fluent query building
+- [Working with Responses](docs/responses.md) - Response handling & pagination
+- [Multiple Connections](docs/multiple-connections.md) - Multi-server setup
+
+**Features**
 - [Batch Operations](docs/batch-operations.md) - Multiple requests in one call
 - [Session Pool](docs/session-pool.md) - High-concurrency scenarios
 - [Circuit Breaker](docs/circuit-breaker.md) - Resilience & fault tolerance
@@ -57,7 +67,16 @@ Full documentation is available in the [docs](docs/README.md) folder:
 - [Attachments](docs/attachments.md) - File uploads & downloads
 - [SQL Queries](docs/sql-queries.md) - Stored queries & semantic layer
 - [Multi-Tenant](docs/multi-tenant.md) - Multi-tenant session isolation
+
+**Operations & Debugging**
+- [Health Checks](docs/health-checks.md) - Connection monitoring
+- [Artisan Commands](docs/artisan-commands.md) - CLI tools
+- [Events](docs/events.md) - Event lifecycle & listeners
+- [Error Handling](docs/error-handling.md) - Exceptions & error codes
+
+**Testing**
 - [Testing](docs/testing.md) - Mocking & factories
+- [Testing Factories](docs/testing-factories.md) - Entity factory patterns
 
 ## Features
 

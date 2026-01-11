@@ -2,7 +2,13 @@
     "name": "ismaildasci/laravel-sapb1",
     "description": "A Laravel package for SAP Business One Service Layer API integration",
     "keywords": [
-        "ismaildasci",
+        "sap",
+        "sap-b1",
+        "sap-business-one",
+        "business-one",
+        "service-layer",
+        "odata",
+        "erp",
         "laravel",
         "laravel-sapb1"
     ],
