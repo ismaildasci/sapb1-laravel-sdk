@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use SapB1\Client\PendingRequest;
 use SapB1\Client\Response;
 use SapB1\Contracts\MiddlewareInterface;
 use SapB1\Middleware\MiddlewarePipeline;
-use GuzzleHttp\Psr7\Response as GuzzleResponse;
 
 beforeEach(function (): void {
     $this->pipeline = new MiddlewarePipeline;
@@ -77,6 +77,7 @@ describe('MiddlewarePipeline', function (): void {
             $order[] = 'first_before';
             $response = $next($request);
             $order[] = 'first_after';
+
             return $response;
         });
 
@@ -84,6 +85,7 @@ describe('MiddlewarePipeline', function (): void {
             $order[] = 'second_before';
             $response = $next($request);
             $order[] = 'second_after';
+
             return $response;
         });
 
@@ -92,6 +94,7 @@ describe('MiddlewarePipeline', function (): void {
 
         $this->pipeline->process($request, function () use (&$order, $guzzleResponse) {
             $order[] = 'destination';
+
             return new Response($guzzleResponse);
         });
 
@@ -114,6 +117,7 @@ describe('MiddlewarePipeline', function (): void {
             public function handle(PendingRequest $request, Closure $next): Response
             {
                 $this->called = true;
+
                 return $next($request);
             }
         };
@@ -142,6 +146,7 @@ describe('MiddlewarePipeline', function (): void {
 
         $result = $this->pipeline->process($request, function () use (&$destinationCalled) {
             $destinationCalled = true;
+
             return new Response(new GuzzleResponse(200, [], '{}'));
         });
 
