@@ -173,15 +173,67 @@ class AuditService
      */
     protected function getHistoryTableName(string $entity): string
     {
-        // Common entity to table mappings
+        // Comprehensive entity to history table mappings
+        // SAP B1 uses 'A' prefix for audit/history tables
         $tableMapping = [
+            // Master Data
             'BusinessPartners' => 'ACRD',
             'Items' => 'AITM',
+            'Warehouses' => 'AWHS',
+            'PriceLists' => 'APLN',
+            'SalesPersons' => 'ASLN',
+            'Employees' => 'AHEP',
+            'ChartOfAccounts' => 'AACT',
+            'Projects' => 'APRJ',
+            'Users' => 'AUSR',
+            'ItemGroups' => 'AITB',
+            'BusinessPartnerGroups' => 'ACRG',
+
+            // Sales Documents
             'Orders' => 'ARDR',
             'Invoices' => 'AINV',
-            'PurchaseOrders' => 'APOR',
-            'Quotations' => 'AQUT',
             'DeliveryNotes' => 'ADLN',
+            'Returns' => 'ARDN',
+            'CreditNotes' => 'ARIN',
+            'Quotations' => 'AQUT',
+            'DownPayments' => 'ADPI',
+
+            // Purchasing Documents
+            'PurchaseOrders' => 'APOR',
+            'PurchaseDeliveryNotes' => 'APDN',
+            'PurchaseInvoices' => 'APCH',
+            'PurchaseReturns' => 'ARPC',
+            'PurchaseCreditNotes' => 'ARPC',
+            'PurchaseQuotations' => 'APQT',
+
+            // Inventory Documents
+            'InventoryGenEntries' => 'AIGE',
+            'InventoryGenExits' => 'AIGE',
+            'StockTransfers' => 'AWTR',
+            'InventoryTransferRequests' => 'AWTQ',
+            'InventoryCountings' => 'AINC',
+
+            // Financial Documents
+            'JournalEntries' => 'AJDT',
+            'Payments' => 'AVPM',
+            'IncomingPayments' => 'ARCT',
+            'CorrectionInvoice' => 'ARPC',
+            'CorrectionInvoiceReversal' => 'ARPC',
+
+            // Production
+            'ProductionOrders' => 'AWOR',
+            'BillOfMaterials' => 'AITT',
+
+            // Service
+            'ServiceCalls' => 'ASCL',
+            'ServiceContracts' => 'ACTR',
+
+            // Banking
+            'BankStatements' => 'AOBS',
+            'Checks' => 'ACHK',
+
+            // Draft Documents
+            'Drafts' => 'ADRF',
         ];
 
         return $tableMapping[$entity] ?? 'A'.substr($entity, 1);
@@ -193,13 +245,86 @@ class AuditService
     protected function getKeyField(string $entity): string
     {
         $keyFields = [
+            // Master Data with code-based keys
             'BusinessPartners' => 'CardCode',
             'Items' => 'ItemCode',
+            'Warehouses' => 'WhsCode',
+            'ChartOfAccounts' => 'AcctCode',
+            'Projects' => 'PrjCode',
+            'Users' => 'USER_CODE',
+            'SalesPersons' => 'SlpCode',
+            'PriceLists' => 'ListNum',
+            'ItemGroups' => 'ItmsGrpCod',
+            'BusinessPartnerGroups' => 'GroupCode',
+
+            // Documents with DocEntry keys
             'Orders' => 'DocEntry',
             'Invoices' => 'DocEntry',
+            'DeliveryNotes' => 'DocEntry',
+            'Returns' => 'DocEntry',
+            'CreditNotes' => 'DocEntry',
+            'Quotations' => 'DocEntry',
+            'DownPayments' => 'DocEntry',
+            'PurchaseOrders' => 'DocEntry',
+            'PurchaseDeliveryNotes' => 'DocEntry',
+            'PurchaseInvoices' => 'DocEntry',
+            'PurchaseReturns' => 'DocEntry',
+            'PurchaseCreditNotes' => 'DocEntry',
+            'PurchaseQuotations' => 'DocEntry',
+            'JournalEntries' => 'TransId',
+            'Payments' => 'DocEntry',
+            'IncomingPayments' => 'DocEntry',
+            'StockTransfers' => 'DocEntry',
+            'InventoryTransferRequests' => 'DocEntry',
+            'InventoryGenEntries' => 'DocEntry',
+            'InventoryGenExits' => 'DocEntry',
+            'ProductionOrders' => 'DocEntry',
+            'Drafts' => 'DocEntry',
+
+            // Other keys
+            'Employees' => 'empID',
+            'ServiceCalls' => 'callID',
+            'ServiceContracts' => 'ContractID',
+            'BillOfMaterials' => 'Code',
         ];
 
         return $keyFields[$entity] ?? 'DocEntry';
+    }
+
+    /**
+     * Get supported entities for audit.
+     *
+     * @return array<string, array{table: string, key: string}>
+     */
+    public static function getSupportedEntities(): array
+    {
+        return [
+            'BusinessPartners' => ['table' => 'ACRD', 'key' => 'CardCode'],
+            'Items' => ['table' => 'AITM', 'key' => 'ItemCode'],
+            'Warehouses' => ['table' => 'AWHS', 'key' => 'WhsCode'],
+            'Orders' => ['table' => 'ARDR', 'key' => 'DocEntry'],
+            'Invoices' => ['table' => 'AINV', 'key' => 'DocEntry'],
+            'DeliveryNotes' => ['table' => 'ADLN', 'key' => 'DocEntry'],
+            'Returns' => ['table' => 'ARDN', 'key' => 'DocEntry'],
+            'CreditNotes' => ['table' => 'ARIN', 'key' => 'DocEntry'],
+            'Quotations' => ['table' => 'AQUT', 'key' => 'DocEntry'],
+            'PurchaseOrders' => ['table' => 'APOR', 'key' => 'DocEntry'],
+            'PurchaseDeliveryNotes' => ['table' => 'APDN', 'key' => 'DocEntry'],
+            'PurchaseInvoices' => ['table' => 'APCH', 'key' => 'DocEntry'],
+            'JournalEntries' => ['table' => 'AJDT', 'key' => 'TransId'],
+            'Payments' => ['table' => 'AVPM', 'key' => 'DocEntry'],
+            'IncomingPayments' => ['table' => 'ARCT', 'key' => 'DocEntry'],
+            'StockTransfers' => ['table' => 'AWTR', 'key' => 'DocEntry'],
+            'ProductionOrders' => ['table' => 'AWOR', 'key' => 'DocEntry'],
+        ];
+    }
+
+    /**
+     * Check if entity is supported for audit.
+     */
+    public static function isEntitySupported(string $entity): bool
+    {
+        return array_key_exists($entity, self::getSupportedEntities());
     }
 
     /**

@@ -34,3 +34,6 @@ testbench.yaml
 /plan-docs/
 
 /.env.*
+
+# Claude memory files
+**/CLAUDE.md

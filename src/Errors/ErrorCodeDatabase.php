@@ -185,6 +185,241 @@ class ErrorCodeDatabase
             'suggestion' => 'Document has already been approved or rejected',
             'category' => 'workflow',
         ],
+        -6004 => [
+            'message' => 'No pending approval for user',
+            'suggestion' => 'Document is not pending approval from this user',
+            'category' => 'workflow',
+        ],
+        -6005 => [
+            'message' => 'Approval template not found',
+            'suggestion' => 'Configure approval templates in Administration',
+            'category' => 'workflow',
+        ],
+
+        // Production/Manufacturing Errors
+        -7001 => [
+            'message' => 'Production order cannot be released',
+            'suggestion' => 'Check BOM and resource availability',
+            'category' => 'production',
+        ],
+        -7002 => [
+            'message' => 'Bill of materials not found',
+            'suggestion' => 'Create BOM for the item before production',
+            'category' => 'production',
+        ],
+        -7003 => [
+            'message' => 'Resource not available',
+            'suggestion' => 'Check resource calendar and capacity',
+            'category' => 'production',
+        ],
+        -7004 => [
+            'message' => 'Production order already closed',
+            'suggestion' => 'Cannot modify closed production order',
+            'category' => 'production',
+        ],
+        -7005 => [
+            'message' => 'Issue component quantity exceeds planned',
+            'suggestion' => 'Adjust planned quantity or enable over-issue',
+            'category' => 'production',
+        ],
+        -7006 => [
+            'message' => 'Receipt quantity exceeds planned',
+            'suggestion' => 'Adjust planned quantity or enable over-receipt',
+            'category' => 'production',
+        ],
+
+        // Pricing Errors
+        -8001 => [
+            'message' => 'Price list not found',
+            'suggestion' => 'Verify price list exists and is assigned',
+            'category' => 'pricing',
+        ],
+        -8002 => [
+            'message' => 'No price defined for item',
+            'suggestion' => 'Add price for item in the relevant price list',
+            'category' => 'pricing',
+        ],
+        -8003 => [
+            'message' => 'Special price expired',
+            'suggestion' => 'Update special price validity dates',
+            'category' => 'pricing',
+        ],
+        -8004 => [
+            'message' => 'Discount exceeds maximum allowed',
+            'suggestion' => 'Reduce discount or update user authorization',
+            'category' => 'pricing',
+        ],
+        -8005 => [
+            'message' => 'Price below minimum',
+            'suggestion' => 'Increase price or get approval for below-minimum pricing',
+            'category' => 'pricing',
+        ],
+
+        // Tax Errors
+        -9001 => [
+            'message' => 'Tax code not found',
+            'suggestion' => 'Verify tax code exists in tax definitions',
+            'category' => 'tax',
+        ],
+        -9002 => [
+            'message' => 'Tax group not assigned',
+            'suggestion' => 'Assign tax group to business partner or item',
+            'category' => 'tax',
+        ],
+        -9003 => [
+            'message' => 'Withholding tax code required',
+            'suggestion' => 'Specify withholding tax code for this transaction',
+            'category' => 'tax',
+        ],
+        -9004 => [
+            'message' => 'Tax exemption certificate expired',
+            'suggestion' => 'Update tax exemption certificate for business partner',
+            'category' => 'tax',
+        ],
+        -9005 => [
+            'message' => 'Invalid tax jurisdiction',
+            'suggestion' => 'Check tax jurisdiction configuration',
+            'category' => 'tax',
+        ],
+
+        // Payment Errors
+        -10001 => [
+            'message' => 'Payment means not allowed',
+            'suggestion' => 'Payment type not permitted for this business partner',
+            'category' => 'payment',
+        ],
+        -10002 => [
+            'message' => 'Bank account not found',
+            'suggestion' => 'Verify house bank account exists',
+            'category' => 'payment',
+        ],
+        -10003 => [
+            'message' => 'Payment already reconciled',
+            'suggestion' => 'Cannot modify reconciled payments',
+            'category' => 'payment',
+        ],
+        -10004 => [
+            'message' => 'Check number already used',
+            'suggestion' => 'Use different check number',
+            'category' => 'payment',
+        ],
+        -10005 => [
+            'message' => 'Insufficient payment amount',
+            'suggestion' => 'Payment amount is less than document total',
+            'category' => 'payment',
+        ],
+        -10006 => [
+            'message' => 'Overpayment not allowed',
+            'suggestion' => 'Payment amount exceeds document balance',
+            'category' => 'payment',
+        ],
+
+        // Inventory Transfer Errors
+        -11001 => [
+            'message' => 'Source and target warehouse cannot be same',
+            'suggestion' => 'Select different source or target warehouse',
+            'category' => 'inventory',
+        ],
+        -11002 => [
+            'message' => 'Transfer request not found',
+            'suggestion' => 'Create transfer request first',
+            'category' => 'inventory',
+        ],
+        -11003 => [
+            'message' => 'Quantity exceeds request quantity',
+            'suggestion' => 'Adjust transfer quantity to match request',
+            'category' => 'inventory',
+        ],
+
+        // Project Errors
+        -12001 => [
+            'message' => 'Project not found',
+            'suggestion' => 'Verify project code exists',
+            'category' => 'project',
+        ],
+        -12002 => [
+            'message' => 'Project is not active',
+            'suggestion' => 'Activate project or use different one',
+            'category' => 'project',
+        ],
+        -12003 => [
+            'message' => 'Budget exceeded',
+            'suggestion' => 'Increase project budget or get approval',
+            'category' => 'project',
+        ],
+
+        // Bank Statement Errors
+        -13001 => [
+            'message' => 'Bank statement already imported',
+            'suggestion' => 'This statement has already been imported',
+            'category' => 'banking',
+        ],
+        -13002 => [
+            'message' => 'Statement format not recognized',
+            'suggestion' => 'Check bank statement file format',
+            'category' => 'banking',
+        ],
+        -13003 => [
+            'message' => 'Reconciliation mismatch',
+            'suggestion' => 'Amounts do not match. Check reconciliation',
+            'category' => 'banking',
+        ],
+
+        // UDF Errors
+        -14001 => [
+            'message' => 'User-defined field not found',
+            'suggestion' => 'Verify UDF exists for this entity',
+            'category' => 'configuration',
+        ],
+        -14002 => [
+            'message' => 'Invalid UDF value',
+            'suggestion' => 'Value does not match UDF type or valid values',
+            'category' => 'configuration',
+        ],
+        -14003 => [
+            'message' => 'Mandatory UDF missing',
+            'suggestion' => 'Provide value for required user-defined field',
+            'category' => 'configuration',
+        ],
+
+        // Service Layer Specific
+        -200 => [
+            'message' => 'Entity set not found',
+            'suggestion' => 'Check endpoint name. Use correct Service Layer entity',
+            'category' => 'request',
+        ],
+        -201 => [
+            'message' => 'Invalid key field',
+            'suggestion' => 'Check primary key field name and value',
+            'category' => 'request',
+        ],
+        -202 => [
+            'message' => 'Action not supported',
+            'suggestion' => 'This entity does not support the requested action',
+            'category' => 'request',
+        ],
+        -203 => [
+            'message' => 'Navigation property not found',
+            'suggestion' => 'Check $expand parameter for valid navigation properties',
+            'category' => 'request',
+        ],
+
+        // Additional Common Errors
+        -50 => [
+            'message' => 'Object locked by another user',
+            'suggestion' => 'Wait for other user to release the object',
+            'category' => 'concurrency',
+        ],
+        -51 => [
+            'message' => 'Transaction timeout',
+            'suggestion' => 'Operation took too long. Try again or reduce batch size',
+            'category' => 'system',
+        ],
+        -52 => [
+            'message' => 'Deadlock detected',
+            'suggestion' => 'Concurrent modification detected. Retry the operation',
+            'category' => 'concurrency',
+        ],
 
         // System Errors
         -10 => [
@@ -227,6 +462,61 @@ class ErrorCodeDatabase
         '500' => [
             'message' => 'Internal server error',
             'suggestion' => 'Server error occurred. Check Service Layer status',
+            'category' => 'system',
+        ],
+        '405' => [
+            'message' => 'Method not allowed',
+            'suggestion' => 'HTTP method not supported for this endpoint',
+            'category' => 'request',
+        ],
+        '406' => [
+            'message' => 'Not acceptable',
+            'suggestion' => 'Check Accept header and content type',
+            'category' => 'request',
+        ],
+        '408' => [
+            'message' => 'Request timeout',
+            'suggestion' => 'Operation took too long. Increase timeout or optimize query',
+            'category' => 'system',
+        ],
+        '412' => [
+            'message' => 'Precondition failed',
+            'suggestion' => 'ETag mismatch. Resource was modified. Refresh and retry',
+            'category' => 'concurrency',
+        ],
+        '413' => [
+            'message' => 'Payload too large',
+            'suggestion' => 'Request body exceeds size limit. Split into smaller requests',
+            'category' => 'request',
+        ],
+        '415' => [
+            'message' => 'Unsupported media type',
+            'suggestion' => 'Check Content-Type header. Use application/json',
+            'category' => 'request',
+        ],
+        '422' => [
+            'message' => 'Unprocessable entity',
+            'suggestion' => 'Request syntax correct but semantic errors. Check field values',
+            'category' => 'validation',
+        ],
+        '429' => [
+            'message' => 'Too many requests',
+            'suggestion' => 'Rate limit exceeded. Wait before retrying',
+            'category' => 'rate_limit',
+        ],
+        '502' => [
+            'message' => 'Bad gateway',
+            'suggestion' => 'Proxy error. Check Service Layer connectivity',
+            'category' => 'system',
+        ],
+        '503' => [
+            'message' => 'Service unavailable',
+            'suggestion' => 'Service Layer is overloaded or under maintenance',
+            'category' => 'system',
+        ],
+        '504' => [
+            'message' => 'Gateway timeout',
+            'suggestion' => 'Upstream server timed out. Try again later',
             'category' => 'system',
         ],
     ];

@@ -15,7 +15,21 @@
       "Bash(git show:*)",
       "Bash(php -r:*)",
       "Bash(find:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git stash:*)",
+      "Bash(grep:*)",
+      "Bash(for file in quick-start requests odata-query-builder responses multiple-connections health-checks artisan-commands events error-handling testing-factories)",
+      "Bash(do)",
+      "Bash(if [ ! -f \"/Users/ismail-dasci/Code/CALISMALAR/sapb1-laravel-sdk/docs/$file.md\" ])",
+      "Bash(then)",
+      "Bash(echo:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(composer test:*)",
+      "Bash(wc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)"
     ]
   }
 }
