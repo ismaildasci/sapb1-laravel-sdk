@@ -31,58 +31,58 @@ try {
     ]);
 } catch (AuthenticationException $e) {
     // Invalid credentials or login failed
-    echo "Authentication failed: " . $e->getMessage() . PHP_EOL;
+    echo 'Authentication failed: '.$e->getMessage().PHP_EOL;
     // Suggestion: Check SAP_B1_USERNAME and SAP_B1_PASSWORD in .env
 
 } catch (SessionExpiredException $e) {
     // Session timed out (usually auto-refreshed, but can occur)
-    echo "Session expired: " . $e->getMessage() . PHP_EOL;
+    echo 'Session expired: '.$e->getMessage().PHP_EOL;
     // SDK will automatically retry with a new session if auto_refresh is enabled
 
 } catch (RateLimitException $e) {
     // Too many requests (429)
-    echo "Rate limited! Retry after: " . $e->getRetryAfter() . " seconds" . PHP_EOL;
+    echo 'Rate limited! Retry after: '.$e->getRetryAfter().' seconds'.PHP_EOL;
     sleep($e->getRetryAfter());
     // Retry the request...
 
 } catch (CircuitBreakerOpenException $e) {
     // Circuit breaker is open due to repeated failures
-    echo "Service temporarily unavailable (circuit open)" . PHP_EOL;
-    echo "Will recover after: " . $e->getRecoveryTime()->diffForHumans() . PHP_EOL;
+    echo 'Service temporarily unavailable (circuit open)'.PHP_EOL;
+    echo 'Will recover after: '.$e->getRecoveryTime()->diffForHumans().PHP_EOL;
     // Don't retry immediately - the circuit breaker protects the server
 
 } catch (PoolExhaustedException $e) {
     // No sessions available in pool (high concurrency scenario)
-    echo "No sessions available, try again later" . PHP_EOL;
+    echo 'No sessions available, try again later'.PHP_EOL;
     // Consider increasing pool size or wait_timeout in config
 
 } catch (ProxyException $e) {
     // Proxy/gateway error (502)
-    echo "Proxy error: " . $e->getMessage() . PHP_EOL;
+    echo 'Proxy error: '.$e->getMessage().PHP_EOL;
     // Usually temporary - SDK will retry automatically
 
 } catch (ConnectionException $e) {
     // Network connectivity issues
-    echo "Cannot connect to SAP server: " . $e->getMessage() . PHP_EOL;
+    echo 'Cannot connect to SAP server: '.$e->getMessage().PHP_EOL;
     // Check network, firewall, VPN, or SAP server status
 
 } catch (ServiceLayerException $e) {
     // SAP Business logic error
-    echo "SAP Error Code: " . $e->getCode() . PHP_EOL;
-    echo "SAP Message: " . $e->getMessage() . PHP_EOL;
-    echo "Human Message: " . $e->getHumanMessage() . PHP_EOL;
-    echo "Suggestion: " . $e->getSuggestion() . PHP_EOL;
-    echo "Category: " . $e->getCategory() . PHP_EOL;
-    echo "Is Retryable: " . ($e->isRetryable() ? 'Yes' : 'No') . PHP_EOL;
+    echo 'SAP Error Code: '.$e->getCode().PHP_EOL;
+    echo 'SAP Message: '.$e->getMessage().PHP_EOL;
+    echo 'Human Message: '.$e->getHumanMessage().PHP_EOL;
+    echo 'Suggestion: '.$e->getSuggestion().PHP_EOL;
+    echo 'Category: '.$e->getCategory().PHP_EOL;
+    echo 'Is Retryable: '.($e->isRetryable() ? 'Yes' : 'No').PHP_EOL;
 
 } catch (JsonDecodeException $e) {
     // Malformed JSON response
-    echo "Invalid JSON response: " . $e->getMessage() . PHP_EOL;
-    echo "Body preview: " . $e->getBodyPreview() . PHP_EOL;
+    echo 'Invalid JSON response: '.$e->getMessage().PHP_EOL;
+    echo 'Body preview: '.$e->getBodyPreview().PHP_EOL;
 
 } catch (\Throwable $e) {
     // Catch-all for unexpected errors
-    echo "Unexpected error: " . $e->getMessage() . PHP_EOL;
+    echo 'Unexpected error: '.$e->getMessage().PHP_EOL;
 }
 
 // =============================================================================
@@ -97,7 +97,7 @@ try {
     ]);
 } catch (ServiceLayerException $e) {
     if ($e->getCode() === -2035) {
-        echo "Business partner already exists, updating instead..." . PHP_EOL;
+        echo 'Business partner already exists, updating instead...'.PHP_EOL;
         SapB1::update('BusinessPartners', 'EXISTING_CODE', [
             'CardName' => 'Test',
         ]);
@@ -111,7 +111,7 @@ try {
     SapB1::update('BusinessPartners', 'NONEXISTENT', ['CardName' => 'New Name']);
 } catch (ServiceLayerException $e) {
     if ($e->getCode() === -2028) {
-        echo "Business partner not found: NONEXISTENT" . PHP_EOL;
+        echo 'Business partner not found: NONEXISTENT'.PHP_EOL;
     } else {
         throw $e;
     }
@@ -122,8 +122,8 @@ try {
     SapB1::delete('BusinessPartners', 'C001');
 } catch (ServiceLayerException $e) {
     if ($e->getCategory() === 'constraint_violation') {
-        echo "Cannot delete: " . $e->getHumanMessage() . PHP_EOL;
-        echo "Tip: " . $e->getSuggestion() . PHP_EOL;
+        echo 'Cannot delete: '.$e->getHumanMessage().PHP_EOL;
+        echo 'Tip: '.$e->getSuggestion().PHP_EOL;
     } else {
         throw $e;
     }
@@ -139,17 +139,17 @@ function createBusinessPartner(array $data): array
     $required = ['CardCode', 'CardName', 'CardType'];
     $missing = array_diff($required, array_keys($data));
 
-    if (!empty($missing)) {
+    if (! empty($missing)) {
         throw new \InvalidArgumentException(
-            'Missing required fields: ' . implode(', ', $missing)
+            'Missing required fields: '.implode(', ', $missing)
         );
     }
 
     // Validate CardType
     $validTypes = ['cCustomer', 'cSupplier', 'cLead'];
-    if (!in_array($data['CardType'], $validTypes, true)) {
+    if (! in_array($data['CardType'], $validTypes, true)) {
         throw new \InvalidArgumentException(
-            'Invalid CardType. Must be one of: ' . implode(', ', $validTypes)
+            'Invalid CardType. Must be one of: '.implode(', ', $validTypes)
         );
     }
 
@@ -171,14 +171,14 @@ function withRetry(callable $operation, int $maxAttempts = 3): mixed
         } catch (ServiceLayerException $e) {
             $lastException = $e;
 
-            if (!$e->isRetryable()) {
+            if (! $e->isRetryable()) {
                 throw $e; // Don't retry non-retryable errors
             }
 
             $attempt++;
             if ($attempt < $maxAttempts) {
                 $delay = pow(2, $attempt); // Exponential backoff
-                echo "Attempt {$attempt} failed, retrying in {$delay}s..." . PHP_EOL;
+                echo "Attempt {$attempt} failed, retrying in {$delay}s...".PHP_EOL;
                 sleep($delay);
             }
         }
@@ -226,11 +226,13 @@ function getBusinessPartnersWithFallback(): array
     try {
         $partners = SapB1::get('BusinessPartners')->value();
         cache()->put('business_partners', $partners, 3600);
+
         return $partners;
     } catch (ConnectionException|CircuitBreakerOpenException $e) {
         $cached = cache()->get('business_partners');
         if ($cached !== null) {
-            Log::warning('Using cached business partners due to: ' . $e->getMessage());
+            Log::warning('Using cached business partners due to: '.$e->getMessage());
+
             return $cached;
         }
         throw $e;

@@ -84,7 +84,7 @@ $order = SapB1::create('Orders', [
     ],
 ]);
 
-echo "Created order with DocEntry: " . $order['DocEntry'] . PHP_EOL;
+echo 'Created order with DocEntry: '.$order['DocEntry'].PHP_EOL;
 
 // =============================================================================
 // UPDATING RECORDS
@@ -134,10 +134,10 @@ if ($response->successful()) {
     $partners = $response->value();
     $count = $response->count();
 
-    echo "Found {$count} partners" . PHP_EOL;
+    echo "Found {$count} partners".PHP_EOL;
 
     foreach ($partners as $partner) {
-        echo "- {$partner['CardCode']}: {$partner['CardName']}" . PHP_EOL;
+        echo "- {$partner['CardCode']}: {$partner['CardName']}".PHP_EOL;
     }
 }
 

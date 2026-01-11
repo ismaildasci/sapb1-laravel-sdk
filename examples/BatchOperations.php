@@ -28,10 +28,10 @@ $responses = $batch->execute();
 // Process responses
 foreach ($responses as $index => $response) {
     if ($response->successful()) {
-        echo "Request {$index}: Success" . PHP_EOL;
+        echo "Request {$index}: Success".PHP_EOL;
         print_r($response->value());
     } else {
-        echo "Request {$index}: Failed - " . $response->status() . PHP_EOL;
+        echo "Request {$index}: Failed - ".$response->status().PHP_EOL;
     }
 }
 
@@ -123,14 +123,14 @@ $responses = $batch->execute();
 // Check for errors
 $hasErrors = false;
 foreach ($responses as $response) {
-    if (!$response->successful()) {
+    if (! $response->successful()) {
         $hasErrors = true;
-        echo "Error: " . $response->json()['error']['message']['value'] ?? 'Unknown error' . PHP_EOL;
+        echo 'Error: '.$response->json()['error']['message']['value'] ?? 'Unknown error'.PHP_EOL;
     }
 }
 
-if (!$hasErrors) {
-    echo "All items updated successfully!" . PHP_EOL;
+if (! $hasErrors) {
+    echo 'All items updated successfully!'.PHP_EOL;
 }
 
 // =============================================================================
@@ -160,10 +160,10 @@ $batch->endChangeset();
 
 try {
     $responses = $batch->execute();
-    echo "Imported " . count($partnersToImport) . " partners successfully!" . PHP_EOL;
+    echo 'Imported '.count($partnersToImport).' partners successfully!'.PHP_EOL;
 } catch (\SapB1\Exceptions\ServiceLayerException $e) {
-    echo "Import failed: " . $e->getHumanMessage() . PHP_EOL;
-    echo "Suggestion: " . $e->getSuggestion() . PHP_EOL;
+    echo 'Import failed: '.$e->getHumanMessage().PHP_EOL;
+    echo 'Suggestion: '.$e->getSuggestion().PHP_EOL;
 }
 
 // =============================================================================

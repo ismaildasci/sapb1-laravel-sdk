@@ -230,10 +230,10 @@ $orders = SapB1::query()
     ->inlineCount()
     ->get('Orders');
 
-echo "Found {$orders->count()} orders" . PHP_EOL;
+echo "Found {$orders->count()} orders".PHP_EOL;
 
 foreach ($orders->value() as $order) {
-    echo "{$order['DocNum']}: {$order['CardName']} - \${$order['DocTotal']}" . PHP_EOL;
+    echo "{$order['DocNum']}: {$order['CardName']} - \${$order['DocTotal']}".PHP_EOL;
 }
 
 // =============================================================================
